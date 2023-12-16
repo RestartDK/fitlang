@@ -30,8 +30,12 @@ typedef struct {
 } ASTClientProfile;
 
 typedef struct {
-    ASTNode* client;
-    ASTNode* plan;
+    ASTClientProfile* client;
+} ASTShowPlans;
+
+typedef struct {
+    ASTClientProfile* client;
+    ASTShowPlans* plan;
 } ASTAssignment;
 
 typedef struct {
@@ -45,10 +49,6 @@ typedef struct {
     int sets;
     int rest;
 } ASTExercise;
-
-typedef struct {
-    ASTNode* client;
-} ASTShowPlans;
 
 typedef struct {
     char* name; // Name of the day
