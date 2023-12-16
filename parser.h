@@ -5,6 +5,7 @@
 
 // Define the types of nodes that can appear in the AST
 typedef enum {
+    NODE_PROGRAM,        // Represents the entire program
     NODE_CLIENT_PROFILE, // Represents a client profile
     NODE_PLAN,           // Represents a training plan
     NODE_EXERCISE,       // Represents an exercise within a plan
@@ -18,6 +19,10 @@ typedef enum {
 
 // Define the structure of an AST node
 typedef struct ASTNode ASTNode;
+
+typedef struct {
+    ASTNode* program;
+} ASTProgram;
 
 // Structures for different node types
 typedef struct {
@@ -61,6 +66,7 @@ typedef struct {
 
 // Tagged union to represent node data
 typedef union {
+    ASTProgram program;
     ASTClientProfile clientProfile;
     ASTAssignment assignment;
     ASTDay day;
