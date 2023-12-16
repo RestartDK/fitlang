@@ -3,26 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 
-// Token types
-typedef enum {
-    TOKEN_IDENTIFIER,
-    TOKEN_KEYWORD,
-    TOKEN_INTEGER,
-    TOKEN_FLOAT,
-    TOKEN_STRING,
-    TOKEN_TIME,
-    TOKEN_OPERATOR,
-    TOKEN_PUNCTUATION,
-    TOKEN_ASSIGNMENT,
-    TOKEN_EOF
-} TokenType;
-
-
-// Token structure
-typedef struct {
-    TokenType type;
-    char* value;
-} Token;
+#include "lexer.h"
 
 // List of keywords
 const char* keywords[] = {
@@ -33,7 +14,6 @@ const char* keywords[] = {
     NULL // Sentinel value
 };
 
-// Check if a string is a keyword
 int isKeyword(const char* str) {
     for (int i = 0; keywords[i] != NULL; i++) {
         if (strcmp(str, keywords[i]) == 0) return 1;
