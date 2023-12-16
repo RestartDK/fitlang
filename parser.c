@@ -3,6 +3,7 @@
 #include <string.h>
 #include "lexer.c"
 #include "parser.h"
+#include <assert.h>
 
 ASTNode* parseStatement(Token** tokens);
 ASTNode* parseIfStatement(Token** tokens);
@@ -17,7 +18,8 @@ ASTNode* createDeclarationNode(const char* identifier);
 ASTNode* addASTChild(ASTNode* parent, ASTNode* child);
 ASTNode* parseTerm(Token** tokens);
 ASTNode* createIntNode(int value);
-void freeTokens(Token* tokens);
+
+
 
 // Function to create a new AST node for an integer
 ASTNode* createIntNode(int value) {
@@ -584,30 +586,51 @@ Token* peekNextToken(Token** tokens) {
     return *(tokens + 1);
 }
 
+void printAST(ASTNode* node, int depth) {
+    for (int i = 0; i < depth; i++) {
+        printf("  ");
+    }
+
+    switch (node->type) {
+        case NODE_PROGRAM:
+            printf("Program\n");
+            break;
+        case NODE_IDENTIFIER:
+            printf("Identifier: %s\n", node->data.identifier.value);
+            break;
+        case NODE_LITERAL_STRING:
+            printf("String Literal: %s\n", node->data.literal_string.value);
+            break;
+        // Add other node types here...
+        default:
+            printf("Unknown node type\n");
+            break;
+    }
+
+    for (int i = 0; i < node->num_children; i++) {
+        printAST(node->children[i], depth + 1);
+    }
+}
+
 int main() {
-    // A simple test program
+    // Test program
     char* program = "ForEach item in list { Try { print(item); } Catch error { print(error); } }";
 
     // Tokenize the program
     Token* tokens = tokenize(program);
-    if (tokens == NULL) {
-        printf("Lexing failed\n");
-        return 1;
-    }
+    assert(tokens != NULL);
 
     // Parse the token stream
     ASTNode* ast = parseProgram(&tokens);
-    if (ast == NULL) {
-        printf("Parsing failed\n");
-        return 1;
-    }
+    assert(ast != NULL);
 
-    // Print the AST
+    printAST(ast, 0);
 
+    // If we reached this point, the tests passed
+    printf("All tests passed!\n");
 
     // Clean up
     freeASTNode(ast);
-    //freeTokens(tokens);
 
     return 0;
 }
