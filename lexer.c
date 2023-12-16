@@ -1,183 +1,200 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include <ctype.h>
+#include "lexer.h" 
+#include <stdbool.h>
+#define INITIAL_SIZE 32
 
-#include "lexer.h"
-
-// List of keywords
-const char* keywords[] = {
-    "ClientProfile", "WorkoutPlan", "int", "string", "float",
-    "Function", "If", "Else", "ForEach", "UpdateProfile",
-    "LogWorkout", "ShowProgress", "SaveExcel", "Input", "Output",
-    "Try", "Catch", "sets", "reps", "time",
-    NULL // Sentinel value
-};
-
-int isKeyword(const char* str) {
-    for (int i = 0; keywords[i] != NULL; i++) {
-        if (strcmp(str, keywords[i]) == 0) return 1;
-    }
-    return 0;
+// Helper functions
+bool is_identifier_start(char c) {
+    return isalpha(c) || c == '_';
 }
 
-// Tokenize an operator
-Token tokenizeOperator(const char** src) {
-    char op[3];
-    int i = 0;
-    while (strchr("+-*/><=!&|", **src) && i < 2) {
-        op[i++] = *(*src)++;
-    }
-    op[i] = '\0';
+bool is_identifier_char(char c) {
+    return isalnum(c) || c == '_';
+}
 
-    Token token;
-    token.type = TOKEN_OPERATOR;
-    token.value = strdup(op);
+TokenType identifyKeywordOrIdentifier(const char* word) {
+    // Compare the word with each of your language's keywords
+    if (strcmp(word, "ClientProfile") == 0) {
+        return TOKEN_CLIENT_PROFILE;
+    } else if (strcmp(word, "assign") == 0) {
+        return TOKEN_ASSIGN;
+    } else if (strcmp(word, "Monday") == 0) {
+        return TOKEN_MONDAY;
+    } else if (strcmp(word, "Tuesday") == 0) {
+        return TOKEN_TUESDAY;
+    } else if (strcmp(word, "Wednesday") == 0) {
+        return TOKEN_WEDNESDAY;
+    } else if (strcmp(word, "Thursday") == 0) {
+        return TOKEN_THURSDAY;
+    } else if (strcmp(word, "Friday") == 0) {
+        return TOKEN_FRIDAY;
+    } else if (strcmp(word, "Saturday") == 0) {
+        return TOKEN_SATURDAY;
+    } else if (strcmp(word, "Sunday") == 0) {
+        return TOKEN_SUNDAY;
+    } else if (strcmp(word, "exercise") == 0) {
+        return TOKEN_EXERCISE;
+    } else if (strcmp(word, "sets") == 0) {
+        return TOKEN_SETS;
+    } else if (strcmp(word, "rest") == 0) {
+        return TOKEN_REST;
+    } else if (strcmp(word, "showPlans") == 0) {
+        return TOKEN_SHOW_PLANS;
+    }
+    // If it doesn't match any keyword, it's an identifier
+    return TOKEN_IDENTIFIER;
+}
+
+// Create the Tokens
+Token* createToken(TokenType type, const char* value) {
+    // Allocate memory for the Token structure
+    Token* token = (Token*)malloc(sizeof(Token));
+    if (!token) {
+        return NULL; // Return NULL if memory allocation fails
+    }
+
+    // Duplicate the string value to ensure the token owns its value
+    token->value = strdup(value);
+    if (!token->value) {
+        free(token); // Free the previously allocated Token structure if strdup fails
+        return NULL;
+    }
+
+    // Set the token type
+    token->type = type;
+
     return token;
 }
 
-// Tokenize punctuation
-Token tokenizePunctuation(const char* src) {
-    Token token;
-    token.type = TOKEN_PUNCTUATION;
-    token.value = strndup(src, 1);
-    return token;
-}
-
-// Tokenize assignment symbol
-Token tokenizeAssignment(const char* src) {
-    Token token;
-    token.type = TOKEN_ASSIGNMENT;
-    token.value = strndup(src, 1); // Assuming '=' is the assignment symbol
-    return token;
-}
-
-// Tokenize a number (integer or float)
-Token tokenizeNumber(const char** src) {
-    char numberBuffer[64]; // Size to accommodate floats
-    int i = 0;
-    int isFloat = 0; // Flag to indicate if the number is a float
-
-    while (isdigit(**src) || (**src == '.' && !isFloat)) {
-        if (**src == '.') {
-            isFloat = 1; // Mark as float if a decimal point is encountered
-        }
-        numberBuffer[i++] = *(*src)++;
-    }
-
-    numberBuffer[i] = '\0';
-
-    Token token;
-    token.type = isFloat ? TOKEN_FLOAT : TOKEN_INTEGER;
-    token.value = strdup(numberBuffer);
-    return token;
-}
-
-
-// Tokenize a string including quotation marks
-Token tokenizeString(const char** src) {
-    char stringBuffer[256]; // Arbitrary size
-    int i = 0;
-
-    // Include the starting quote
-    stringBuffer[i++] = *(*src)++;
-
-    while (**src != '\"' && **src != '\0') {
-        stringBuffer[i++] = *(*src)++;
-    }
-
-    // Include the closing quote if present
-    if (**src == '\"') {
-        stringBuffer[i++] = *(*src)++;
-    }
-
-    stringBuffer[i] = '\0';
-    Token token;
-    token.type = TOKEN_STRING;
-    token.value = strdup(stringBuffer);
-    return token;
-}
-
-// Tokenize a single word
-Token tokenizeWord(char* word) {
-    Token token;
-    if (isKeyword(word)) {
-        token.type = TOKEN_KEYWORD;
-    } else {
-        token.type = TOKEN_IDENTIFIER;
-    }
-    token.value = strdup(word);
-    return token;
-}
-
-// Tokenize a time format
-Token tokenizeTime(const char** src) {
-    char timeBuffer[6]; // Format HH:MM
-    int i = 0;
-
-    while (isdigit(**src) || **src == ':') {
-        timeBuffer[i++] = *(*src)++;
-    }
-
-    timeBuffer[i] = '\0';
-
-    Token token;
-    token.type = TOKEN_TIME; // You need to add TOKEN_TIME to the TokenType enum
-    token.value = strdup(timeBuffer);
-    return token;
-}
-
-// Main tokenizer function
-Token* tokenize(const char* src) {
-    Token* tokens = malloc(sizeof(Token) * 100);
+Token** lexer(const char* input) {
+    // Dynamic array for storing tokens
+    Token** tokens = malloc(sizeof(Token*) * INITIAL_SIZE); // Define INITIAL_SIZE as appropriate
     int tokenCount = 0;
-    int expectTimeFormat = 0;
+    int capacity = INITIAL_SIZE;
 
-    while (*src != '\0') {
-        if (isspace(*src)) {
-            src++;
-        } else if (isalpha(*src)) {
-            char word[50];
-            int wordLength = 0;
-            while (isalpha(*src) || isdigit(*src) || *src == '_') {
-                word[wordLength++] = *src++;
-            }
-            word[wordLength] = '\0';
-            Token currentToken = tokenizeWord(word);
-            tokens[tokenCount++] = currentToken;
+    while (*input != '\0') {
+        if (isspace(*input)) {
+            // Skip whitespace
+            input++;
+        } else if (is_identifier_start(*input)) {
+            // Handle identifiers and keywords
+            const char* start = input;
+            while (is_identifier_char(*input)) input++;
 
-            // Set flag if 'time' keyword is found
-            if (strcmp(currentToken.value, "time") == 0) {
-                expectTimeFormat = 1;
+            char* word = strndup(start, input - start);
+            TokenType type = identifyKeywordOrIdentifier(word);
+            tokens[tokenCount++] = createToken(type, word);
+            free(word);
+
+            if (tokenCount >= capacity) {
+                capacity *= 2;
+                tokens = realloc(tokens, sizeof(Token*) * capacity);
             }
-        } else if (isdigit(*src) || (*src == ':' && expectTimeFormat)) {
-            if (expectTimeFormat) {
-                tokens[tokenCount++] = tokenizeTime(&src);
-                expectTimeFormat = 0;
+        } else if (*input == '"') {
+            // Handle string literals
+            input++; // Skip the opening quote
+            const char* start = input;
+            while (*input && *input != '"') input++;
+            if (*input == '"') {
+                size_t length = input - start;
+                char* literal = strndup(start, length);
+                tokens[tokenCount++] = createToken(TOKEN_STRING_LITERAL, literal);
+                free(literal);
+                input++; // Skip the closing quote
             } else {
-                tokens[tokenCount++] = tokenizeNumber(&src);
+                // Handle unterminated string literal error
             }
-        } else if (strchr("+-*/><!&|", *src)) {
-            tokens[tokenCount++] = tokenizeOperator(&src);
-        } else if (strchr("(){}[],;", *src)) {
-            tokens[tokenCount++] = tokenizePunctuation(src);
-            src++;
-        } else if (*src == '\"') {
-            tokens[tokenCount++] = tokenizeString(&src);
-        } else if (*src == '=') {
-            tokens[tokenCount++] = tokenizeAssignment(src);
-            src++;
-            // Check if next token should be a time format
-            if (expectTimeFormat) {
-                while (isspace(*src)) src++; // Skip whitespace after '='
-                if (*src == '0' || *src == ':') {
-                    tokens[tokenCount++] = tokenizeTime(&src);
-                    expectTimeFormat = 0;
+        } else if (isdigit(*input)) {
+            // Handle numeric literals
+            const char* start = input;
+            while (isdigit(*input)) input++;
+            size_t length = input - start;
+            char* number = strndup(start, length);
+            tokens[tokenCount++] = createToken(TOKEN_INT_LITERAL, number);
+            free(number);
+        } else {
+            // Handle single character tokens
+            switch (*input) {
+                case '{':
+                    tokens[tokenCount++] = createToken(TOKEN_LEFT_BRACE, "{");
+                    break;
+                case '}':
+                    tokens[tokenCount++] = createToken(TOKEN_RIGHT_BRACE, "}");
+                    break;
+                case ':':
+                    tokens[tokenCount++] = createToken(TOKEN_COLON, ":");
+                    break;
+                case '|':
+                    tokens[tokenCount++] = createToken(TOKEN_PIPE, "|");
+                    break;
+                // Add cases for other single character tokens
+            }
+            input++;
+        }
+
+        // Check if resizing is needed
+        if (tokenCount >= capacity) {
+            capacity *= 2;
+            Token** resized = realloc(tokens, sizeof(Token*) * capacity);
+            if (!resized) {
+                // Handle memory allocation failure
+                for (int i = 0; i < tokenCount; ++i) {
+                    free(tokens[i]->value); // Free the token value
+                    free(tokens[i]);        // Free the token itself
                 }
+                free(tokens); // Free the tokens array
+                return NULL;
             }
+            tokens = resized;
         }
     }
 
-    tokens[tokenCount].type = TOKEN_EOF;
+    // Final resizing to trim the excess capacity, plus one for NULL sentinel
+    Token** resized = realloc(tokens, sizeof(Token*) * (tokenCount + 1));
+    if (!resized) {
+        // Handle memory allocation failure similarly as above
+        for (int i = 0; i < tokenCount; ++i) {
+            free(tokens[i]->value);
+            free(tokens[i]);
+        }
+        free(tokens);
+        return NULL;
+    }
+    tokens = resized;
+    tokens[tokenCount] = NULL; // Add NULL sentinel at the end
+
     return tokens;
+}
+
+void printToken(const Token* token) {
+    if (token == NULL) {
+        printf("NULL Token\n");
+        return;
+    }
+
+    printf("Token Type: %d, Token Value: %s\n", token->type, token->value);
+}
+
+void testLexer(const char* input) {
+    printf("Testing Lexer with input: %s\n", input);
+    Token** tokens = lexer(input);
+
+    // Assuming you have a NULL sentinel at the end of your tokens array
+    for (int i = 0; tokens[i] != NULL; i++) {
+        printToken(tokens[i]);
+        free(tokens[i]); // Don't forget to free each token after use
+    }
+    free(tokens); // Free the array of tokens itself
+}
+
+int main() {
+    // Test cases
+    testLexer("ClientProfile Daniel;");
+    testLexer("assign muscleBuildingPlan Daniel { Monday { exercise: \"squats\" | sets: 3 | rest: 1 } }");
+    testLexer("showPlans(Daniel)");
+
+    // Add more test cases as needed
+    return 0;
 }

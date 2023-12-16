@@ -7,28 +7,32 @@
 
 // Token types
 typedef enum {
+    TOKEN_CLIENT_PROFILE,
+    TOKEN_ASSIGN,
+    TOKEN_LEFT_BRACE,
+    TOKEN_RIGHT_BRACE,
+    TOKEN_COLON,
+    TOKEN_PIPE,
     TOKEN_IDENTIFIER,
-    TOKEN_KEYWORD,
-    TOKEN_INTEGER,
-    TOKEN_FLOAT,
-    TOKEN_STRING,
-    TOKEN_TIME,
-    TOKEN_OPERATOR,
-    TOKEN_PUNCTUATION,
-    TOKEN_ASSIGNMENT,
-    TOKEN_EOF
+    TOKEN_STRING_LITERAL,
+    TOKEN_EXERCISE,
+    TOKEN_SETS,
+    TOKEN_REST,
+    TOKEN_INT_LITERAL,
+    TOKEN_SHOW_PLANS,
+    TOKEN_MONDAY,
+    TOKEN_TUESDAY,
+    TOKEN_WEDNESDAY,
+    TOKEN_THURSDAY,
+    TOKEN_FRIDAY,
+    TOKEN_SATURDAY,
+    TOKEN_SUNDAY
 } TokenType;
 
 // Token structure
 typedef struct {
-    TokenType type;
-    char* value;
+    TokenType type;  
+    char* value;     
 } Token;
 
-// List of keywords
-extern const char* keywords[];
-
-// Check if a string is a keyword
-int isKeyword(const char* str);
-
-#endif // LEXER_H
+#endif
