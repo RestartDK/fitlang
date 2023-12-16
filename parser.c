@@ -2,80 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lexer.c"
+#include "parser.h"
 
-// AST node types
-typedef enum {
-    NODE_PROGRAM,
-    NODE_DECLARATION,
-    NODE_ASSIGNMENT,
-    NODE_FUNCTION_CALL,
-    NODE_IF_STATEMENT,
-    NODE_FOREACH_STATEMENT,
-    NODE_TRY_CATCH_BLOCK,
-    NODE_BLOCK,
-    NODE_EXPRESSION,
-    NODE_IDENTIFIER,
-    NODE_LITERAL_STRING,
-    NODE_LITERAL_INT,
-    NODE_LITERAL_FLOAT
-} NodeType;
-
-typedef struct ASTNode ASTNode;
-
-struct ASTNode {
-    NodeType type;
-    union {
-        struct {
-            char* identifier;
-        } declaration;
-        struct {
-            ASTNode* target;
-            ASTNode* value;
-        } assignment;
-        struct {
-            char* identifier;
-            ASTNode** arguments;
-            int num_arguments;
-        } function_call;
-        struct {
-            ASTNode* condition;
-            ASTNode* true_branch;
-            ASTNode* false_branch;
-        } if_statement;
-        struct {
-            ASTNode* identifier;
-            ASTNode* iterable;
-            ASTNode* block;
-        } foreach_statement;
-        struct {
-            ASTNode* try_block;
-            ASTNode* catch_identifier;
-            ASTNode* catch_block;
-        } try_catch_block;
-        struct {
-            ASTNode* expression;
-        } expression;
-        struct {
-            char* value;
-        } identifier;
-        struct {
-            char* value;
-        } literal_string;
-        struct {
-            int value;
-        } literal_int;
-        struct {
-            float value;
-        } literal_float;
-        struct {
-            ASTNode* statements;
-        } block;
-    } data;
-    struct ASTNode** children;  // Array of child nodes
-    int num_children; // for linking statements in a block
-};
-
-ASTNode* createProgramNode();
 ASTNode* parseStatement(Token** tokens);
 ASTNode* parseIfStatement(Token** tokens);
 ASTNode* parseForeachStatement(Token** tokens);
@@ -88,9 +16,50 @@ ASTNode* parseBlock(Token** tokens);
 ASTNode* createDeclarationNode(const char* identifier);
 ASTNode* addASTChild(ASTNode* parent, ASTNode* child);
 ASTNode* parseTerm(Token** tokens);
-ASTNode* createBinaryOpNode(char* op, ASTNode* left, ASTNode* right);
 ASTNode* createIntNode(int value);
-void freeTokens(Token** tokens);
+void freeTokens(Token* tokens);
+
+// Function to create a new AST node for an integer
+ASTNode* createIntNode(int value) {
+    ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
+    if (node == NULL) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+    node->type = NODE_LITERAL_INT;
+    node->data.literal_int.value = value;
+    node->children = NULL;
+    node->num_children = 0;
+    return node;
+}
+
+ASTNode* createBinaryOpNode(ASTNode* left, const char* op, ASTNode* right) {
+    ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
+    if (node == NULL) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+    node->type = NODE_BINARY_OP;
+    node->data.binary_op.left = left;
+    node->data.binary_op.op = strdup(op);
+    node->data.binary_op.right = right;
+    node->children = NULL;
+    node->num_children = 0;
+    return node;
+}
+
+// Function to create a new AST node for a program
+ASTNode* createProgramNode(ASTNode** statements, int num_statements) {
+    ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
+    if (node == NULL) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+    node->type = NODE_PROGRAM;
+    node->children = statements;
+    node->num_children = num_statements;
+    return node;
+}
 
 // Function to create a new AST node for identifier
 ASTNode* createIdentifierNode(const char* value) {
@@ -209,14 +178,14 @@ ASTNode* createIfStatementNode(ASTNode* condition, ASTNode* true_branch, ASTNode
 }
 
 // Function to create a new AST node for a foreach statement
-ASTNode* createForeachStatementNode(ASTNode* identifier, ASTNode* iterable, ASTNode* block) {
+ASTNode* createForEachStatementNode(const char* identifier, ASTNode* iterable, ASTNode* block) {
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
     if (node == NULL) {
         perror("Memory allocation failed");
         exit(EXIT_FAILURE);
     }
     node->type = NODE_FOREACH_STATEMENT;
-    node->data.foreach_statement.identifier = identifier;
+    node->data.foreach_statement.identifier = createIdentifierNode(identifier);
     node->data.foreach_statement.iterable = iterable;
     node->data.foreach_statement.block = block;
     node->children = NULL;
@@ -225,16 +194,16 @@ ASTNode* createForeachStatementNode(ASTNode* identifier, ASTNode* iterable, ASTN
 }
 
 // Function to create a new AST node for a try-catch block
-ASTNode* createTryCatchBlockNode(ASTNode* try_block, ASTNode* catch_identifier, ASTNode* catch_block) {
+ASTNode* createTryCatchBlockNode(ASTNode* tryBlock, const char* catch_identifier, ASTNode* catchBlock) {
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
     if (node == NULL) {
         perror("Memory allocation failed");
         exit(EXIT_FAILURE);
     }
     node->type = NODE_TRY_CATCH_BLOCK;
-    node->data.try_catch_block.try_block = try_block;
-    node->data.try_catch_block.catch_identifier = catch_identifier;
-    node->data.try_catch_block.catch_block = catch_block;
+    node->data.try_catch_block.try_block = tryBlock;
+    node->data.try_catch_block.catch_identifier = createIdentifierNode(catch_identifier);
+    node->data.try_catch_block.catch_block = catchBlock;
     node->children = NULL;
     node->num_children = 0;
     return node;
@@ -288,6 +257,17 @@ void freeASTNode(ASTNode* node) {
     
     // Free any child nodes or resources held by this node
     switch (node->type) {
+        case NODE_PROGRAM:
+            for (int i = 0; i < node->num_children; ++i) {
+                freeASTNode(node->children[i]);
+            }
+            free(node->children);
+            break;
+        case NODE_BINARY_OP:
+            free(node->data.binary_op.op);
+            freeASTNode(node->data.binary_op.left);
+            freeASTNode(node->data.binary_op.right);
+            break;
         case NODE_DECLARATION:
             free(node->data.declaration.identifier);
             break;
@@ -330,12 +310,9 @@ void freeASTNode(ASTNode* node) {
             free(node->data.literal_string.value);
             break;
         case NODE_LITERAL_INT:
-            // No dynamic memory to free for integers
             break;
         case NODE_LITERAL_FLOAT:
-            // No dynamic memory to free for floats
             break;
-        // ... (other cases as needed)
     }
     
     // Free the next node in the chain if there is one
@@ -352,12 +329,51 @@ Function to parse program
 */
 
 ASTNode* parseProgram(Token** tokens) {
-    ASTNode* root = createProgramNode();
-    while ((*tokens)->type != TOKEN_EOF) {
-        ASTNode* child = parseStatement(tokens);
-        addASTChild(root, child);
+    ASTNode** statements = NULL;
+    int num_statements = 0;
+
+    while (*tokens != NULL && (*tokens)->type != TOKEN_EOF) {
+        ASTNode* statement = parseStatement(tokens);
+        if (statement == NULL) {
+            break;
+        }
+
+        statements = (ASTNode**)realloc(statements, (num_statements + 1) * sizeof(ASTNode*));
+        if (statements == NULL) {
+            perror("Memory allocation failed");
+            exit(EXIT_FAILURE);
+        }
+
+        statements[num_statements] = statement;
+        num_statements++;
     }
-    return root;
+
+    ASTNode* programNode = createProgramNode(statements, num_statements);
+    return programNode;
+}
+
+ASTNode* parseBinaryOperatorNode(Token** tokens) {
+    ASTNode* left = parseExpression(tokens);
+    if (left == NULL) {
+        printf("Error: Expected an expression before operator\n");
+        exit(1);
+    }
+
+    if ((*tokens)->type != TOKEN_OPERATOR) {
+        printf("Error: Expected an operator\n");
+        exit(1);
+    }
+    char* op = strdup((*tokens)->value);
+    (*tokens)++; // Move past the operator
+
+    ASTNode* right = parseExpression(tokens);
+    if (right == NULL) {
+        printf("Error: Expected an expression after operator\n");
+        exit(1);
+    }
+
+    ASTNode* node = createBinaryOpNode(left, op, right);
+    return node;
 }
 
 
@@ -392,9 +408,9 @@ ASTNode* parseStatement(Token** tokens) {
         }
         // Additional keyword-based rules
         else if (strcmp((*tokens)->value, "UpdateProfile") == 0 ||
-                 strcmp((*tokens)->value, "LogWorkout") == 0 ||
-                 strcmp((*tokens)->value, "ShowProgress") == 0 ||
-                 strcmp((*tokens)->value, "SaveExcel") == 0) {
+                strcmp((*tokens)->value, "LogWorkout") == 0 ||
+                strcmp((*tokens)->value, "ShowProgress") == 0 ||
+                strcmp((*tokens)->value, "SaveExcel") == 0) {
             return parseFunctionCall(tokens); // Assuming these are function calls
         }
         // Add other specific keyword handling as required
@@ -489,9 +505,9 @@ ASTNode* parseForeachStatement(Token** tokens) {
                 (*tokens)++; // Move past the 'in'
                 ASTNode* iterable = parseExpression(tokens);
                 ASTNode* block = parseBlock(tokens);
-                ASTNode* foreachStatementNode = createForeachStatementNode(identifier, iterable, block);
+                ASTNode* forEachStatementNode = createForEachStatementNode(identifier, iterable, block);
                 free(identifier);
-                return foreachStatementNode;
+                return forEachStatementNode;
             }
             free(identifier);
         }
@@ -549,7 +565,7 @@ ASTNode* parseExpression(Token** tokens) {
             printf("Error: Expected a term after operator\n");
             exit(1);
         }
-        left = createBinaryOpNode(op, left, right);
+        left = createBinaryOpNode(left, op, right);
     }
     return left;
 }
@@ -573,7 +589,7 @@ int main() {
     char* program = "ForEach item in list { Try { print(item); } Catch error { print(error); } }";
 
     // Tokenize the program
-    Token** tokens = tokenize(program);
+    Token* tokens = tokenize(program);
     if (tokens == NULL) {
         printf("Lexing failed\n");
         return 1;
@@ -590,8 +606,8 @@ int main() {
 
 
     // Clean up
-    freeAST(ast);
-    freeTokens(tokens);
+    freeASTNode(ast);
+    //freeTokens(tokens);
 
     return 0;
 }
