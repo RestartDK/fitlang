@@ -1,5 +1,5 @@
-#ifndef AST_H
-#define AST_H
+#ifndef PARSER_H
+#define PARSER_H
 
 #include <stdlib.h>
 
@@ -19,19 +19,9 @@ typedef enum {
 // Define the structure of an AST node
 typedef struct ASTNode ASTNode;
 
-// Enumeration for different types of AST nodes
-typedef enum {
-    AST_CLIENT_PROFILE,
-    AST_ASSIGNMENT,
-    AST_DAY,
-    AST_EXERCISE,
-    AST_SHOW_PLANS,
-    // ... other node types
-} ASTNodeType;
-
 // Structures for different node types
 typedef struct {
-    char* name; // For storing names like client names, exercise names, etc.
+    char* name; // Name of the client
 } ASTClientProfile;
 
 typedef struct {
@@ -40,6 +30,7 @@ typedef struct {
 } ASTAssignment;
 
 typedef struct {
+    char* name; // Name of the day
     ASTNode** exercises;
     int exercisesCount;
 } ASTDay;
@@ -55,14 +46,18 @@ typedef struct {
 } ASTShowPlans;
 
 typedef struct {
-    char* name;
+    char* name; // Name of the day
     ASTNode* exercises;
 } ASTDayName;
 
 typedef struct {
-    char* name;
+    char* name; // Name of the plan
     ASTNode* days;
 } ASTPlan;
+
+typedef struct {
+    char* value; // Value of the literal
+} ASTLiteral;
 
 // Tagged union to represent node data
 typedef union {
@@ -73,17 +68,16 @@ typedef union {
     ASTShowPlans showPlans;
     ASTDayName dayName;
     ASTPlan plan;
-
+    ASTLiteral literal;
 } ASTNodeData;
 
 // Definition of AST node
 struct ASTNode {
-    ASTNodeType type;
+    NodeType type;
     ASTNodeData data;
     ASTNode** children;
     int childrenCount;
 };
-
 
 // Function declarations for creating and manipulating AST nodes
 ASTNode* createASTNode(NodeType type, const char* value);
