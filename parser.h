@@ -1,90 +1,93 @@
-#ifndef PARSER_H
-#define PARSER_H
+#ifndef AST_H
+#define AST_H
 
-#include "lexer.h"
+#include <stdlib.h>
 
-// AST node types
+// Define the types of nodes that can appear in the AST
 typedef enum {
-    NODE_PROGRAM,
-    NODE_BINARY_OP,
-    NODE_DECLARATION,
-    NODE_ASSIGNMENT,
-    NODE_FUNCTION_CALL,
-    NODE_IF_STATEMENT,
-    NODE_FOREACH_STATEMENT,
-    NODE_TRY_CATCH_BLOCK,
-    NODE_BLOCK,
-    NODE_EXPRESSION,
-    NODE_IDENTIFIER,
-    NODE_LITERAL_STRING,
-    NODE_LITERAL_INT,
-    NODE_LITERAL_FLOAT
+    NODE_CLIENT_PROFILE, // Represents a client profile
+    NODE_PLAN,           // Represents a training plan
+    NODE_EXERCISE,       // Represents an exercise within a plan
+    NODE_DAY,            // Represents a day within a plan (e.g., Monday)
+    NODE_SHOW_PLANS,     // Represents a showPlans command
+    NODE_SETS,           // Represents the sets in an exercise
+    NODE_REST,           // Represents the rest time in an exercise
+    NODE_LITERAL,        // Represents a literal value (e.g., "squats", number of sets)
+    NODE_ASSIGNMENT,     // Represents an assignment of a plan to a client
 } NodeType;
 
+// Define the structure of an AST node
 typedef struct ASTNode ASTNode;
 
+// Enumeration for different types of AST nodes
+typedef enum {
+    AST_CLIENT_PROFILE,
+    AST_ASSIGNMENT,
+    AST_DAY,
+    AST_EXERCISE,
+    AST_SHOW_PLANS,
+    // ... other node types
+} ASTNodeType;
+
+// Structures for different node types
+typedef struct {
+    char* name; // For storing names like client names, exercise names, etc.
+} ASTClientProfile;
+
+typedef struct {
+    ASTNode* client;
+    ASTNode* plan;
+} ASTAssignment;
+
+typedef struct {
+    ASTNode** exercises;
+    int exercisesCount;
+} ASTDay;
+
+typedef struct {
+    char* name; // Name of the exercise
+    int sets;
+    int rest;
+} ASTExercise;
+
+typedef struct {
+    ASTNode* client;
+} ASTShowPlans;
+
+typedef struct {
+    char* name;
+    ASTNode* exercises;
+} ASTDayName;
+
+typedef struct {
+    char* name;
+    ASTNode* days;
+} ASTPlan;
+
+// Tagged union to represent node data
+typedef union {
+    ASTClientProfile clientProfile;
+    ASTAssignment assignment;
+    ASTDay day;
+    ASTExercise exercise;
+    ASTShowPlans showPlans;
+    ASTDayName dayName;
+    ASTPlan plan;
+
+} ASTNodeData;
+
+// Definition of AST node
 struct ASTNode {
-    NodeType type;
-    union {
-        struct {
-            ASTNode* left;
-            char* op;
-            ASTNode* right;
-        } binary_op;
-        struct {
-            char* identifier;
-        } declaration;
-        struct {
-            ASTNode* target;
-            ASTNode* value;
-        } assignment;
-        struct {
-            char* identifier;
-            ASTNode** arguments;
-            int num_arguments;
-        } function_call;
-        struct {
-            ASTNode* condition;
-            ASTNode* true_branch;
-            ASTNode* false_branch;
-        } if_statement;
-        struct {
-            ASTNode* identifier;
-            ASTNode* iterable;
-            ASTNode* block;
-        } foreach_statement;
-        struct {
-            ASTNode* try_block;
-            ASTNode* catch_identifier;
-            ASTNode* catch_block;
-        } try_catch_block;
-        struct {
-            ASTNode* expression;
-        } expression;
-        struct {
-            char* value;
-        } identifier;
-        struct {
-            char* value;
-        } literal_string;
-        struct {
-            int value;
-        } literal_int;
-        struct {
-            float value;
-        } literal_float;
-        struct {
-            ASTNode* statements;
-        } block;
-    } data;
-    struct ASTNode** children;  // Array of child nodes
-    int num_children; // for linking statements in a block
+    ASTNodeType type;
+    ASTNodeData data;
+    ASTNode** children;
+    int childrenCount;
 };
 
-// Function prototypes
-ASTNode* createFunctionCallNode(const char* identifier, ASTNode** arguments, int num_arguments);
-ASTNode* createIfStatementNode(ASTNode* condition, ASTNode* true_branch, ASTNode* false_branch);
-ASTNode* addASTChild(ASTNode* parent, ASTNode* child);
-void freeASTNode(ASTNode* node);
 
-#endif // PARSER_H
+// Function declarations for creating and manipulating AST nodes
+ASTNode* createASTNode(NodeType type, const char* value);
+void addASTChildNode(ASTNode* parent, ASTNode* child);
+void freeAST(ASTNode* root);
+
+#endif
