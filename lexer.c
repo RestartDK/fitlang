@@ -188,13 +188,3 @@ void testLexer(const char* input) {
     }
     free(tokens); // Free the array of tokens itself
 }
-
-int main() {
-    // Test cases
-    testLexer("ClientProfile Daniel;");
-    testLexer("assign muscleBuildingPlan Daniel { Monday { exercise: \"squats\" | sets: 3 | rest: 1 } }");
-    testLexer("showPlans(Daniel)");
-
-    // Add more test cases as needed
-    return 0;
-}
