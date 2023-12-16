@@ -264,7 +264,6 @@ ASTNode* parseExercise(Token** tokens, int* position) {
     return exerciseNode;
 }
 
-
 ASTNode* parseShowPlans(Token** tokens, int* position) {
     if (tokens[*position]->type != TOKEN_SHOW_PLANS) {
         // Error handling: Expected 'showPlans' token
@@ -272,11 +271,14 @@ ASTNode* parseShowPlans(Token** tokens, int* position) {
     }
     (*position)++;
 
-    // Parse client identifier for showPlans
-    // ...
+    // Parse client identifier
+    if (tokens[*position]->type != TOKEN_IDENTIFIER) {
+        // Error handling: Expected identifier after 'showPlans'
+        return NULL;
+    }
 
-    ASTNode* showPlansNode = createASTNode(NODE_SHOW_PLANS, "clientName"); // Replace with actual client name
+    ASTNode* showPlansNode = createASTNode(NODE_SHOW_PLANS, tokens[*position]->value);
+    (*position)++;
 
     return showPlansNode;
 }
-
