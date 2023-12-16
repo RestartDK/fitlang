@@ -67,8 +67,12 @@ struct ASTNode {
         struct {
             float value;
         } literal_float;
+        struct {
+            ASTNode* statements;
+        } block;
     } data;
-    ASTNode* next; // for linking statements in a block
+    struct ASTNode** children;  // Array of child nodes
+    int num_children; // for linking statements in a block
 };
 
 ASTNode* createProgramNode();
@@ -83,6 +87,10 @@ Token* peekNextToken(Token** tokens);
 ASTNode* parseBlock(Token** tokens);
 ASTNode* createDeclarationNode(const char* identifier);
 ASTNode* addASTChild(ASTNode* parent, ASTNode* child);
+ASTNode* parseTerm(Token** tokens);
+ASTNode* createBinaryOpNode(char* op, ASTNode* left, ASTNode* right);
+ASTNode* createIntNode(int value);
+void freeTokens(Token** tokens);
 
 // Function to create a new AST node for identifier
 ASTNode* createIdentifierNode(const char* value) {
@@ -93,7 +101,8 @@ ASTNode* createIdentifierNode(const char* value) {
     }
     node->type = NODE_IDENTIFIER;
     node->data.identifier.value = strdup(value);
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -106,7 +115,8 @@ ASTNode* createStringLiteralNode(const char* value) {
     }
     node->type = NODE_LITERAL_STRING;
     node->data.literal_string.value = strdup(value);
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -119,7 +129,8 @@ ASTNode* createIntLiteralNode(int value) {
     }
     node->type = NODE_LITERAL_INT;
     node->data.literal_int.value = value;
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -132,7 +143,8 @@ ASTNode* createFloatLiteralNode(float value) {
     }
     node->type = NODE_LITERAL_FLOAT;
     node->data.literal_float.value = value;
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -144,7 +156,8 @@ ASTNode* createDeclarationNode(const char* identifier) {
     }
     node->type = NODE_DECLARATION;
     node->data.declaration.identifier = strdup(identifier);
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -158,7 +171,8 @@ ASTNode* createAssignmentNode(ASTNode* target, ASTNode* value) {
     node->type = NODE_ASSIGNMENT;
     node->data.assignment.target = target;
     node->data.assignment.value = value;
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -173,7 +187,8 @@ ASTNode* createFunctionCallNode(const char* identifier, ASTNode** arguments, int
     node->data.function_call.identifier = strdup(identifier);
     node->data.function_call.arguments = arguments;
     node->data.function_call.num_arguments = num_arguments;
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -188,7 +203,8 @@ ASTNode* createIfStatementNode(ASTNode* condition, ASTNode* true_branch, ASTNode
     node->data.if_statement.condition = condition;
     node->data.if_statement.true_branch = true_branch;
     node->data.if_statement.false_branch = false_branch;
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -203,7 +219,8 @@ ASTNode* createForeachStatementNode(ASTNode* identifier, ASTNode* iterable, ASTN
     node->data.foreach_statement.identifier = identifier;
     node->data.foreach_statement.iterable = iterable;
     node->data.foreach_statement.block = block;
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -218,7 +235,8 @@ ASTNode* createTryCatchBlockNode(ASTNode* try_block, ASTNode* catch_identifier, 
     node->data.try_catch_block.try_block = try_block;
     node->data.try_catch_block.catch_identifier = catch_identifier;
     node->data.try_catch_block.catch_block = catch_block;
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -232,7 +250,8 @@ ASTNode* createBlockNode(ASTNode* statement_list) {
     node->type = NODE_BLOCK;
     // The statement_list is assumed to be a linked list of statements
     node->data.block.statements = statement_list;
-    node->next = NULL;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
@@ -244,26 +263,24 @@ ASTNode* createExpressionNode(ASTNode* sub_expression) {
         exit(EXIT_FAILURE);
     }
     node->type = NODE_EXPRESSION;
-    node->data.expression.sub_expression = sub_expression;
-    node->next = NULL;
+    node->data.expression.expression = sub_expression;
+    node->children = NULL;
+    node->num_children = 0;
     return node;
 }
 
-
+//to make the freeAST function you gave in the previousanswer shorter don't forget to use the function freeASTNode who already handle the case depending on the type of the node:'
 
 ASTNode* addASTChild(ASTNode* parent, ASTNode* child) {
-    if (parent->next == NULL) {
-        parent->next = child;
-    } else {
-        ASTNode* current = parent->next;
-        while (current->next != NULL) {
-            current = current->next;
-        }
-        current->next = child;
+    parent->children = (ASTNode**)realloc(parent->children, (parent->num_children + 1) * sizeof(ASTNode*));
+    if (parent->children == NULL) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
     }
+    parent->children[parent->num_children] = child;
+    parent->num_children++;
     return child;
 }
-
 void freeASTNode(ASTNode* node) {
     if (node == NULL) {
         return;
@@ -304,7 +321,7 @@ void freeASTNode(ASTNode* node) {
             freeASTNode(node->data.block.statements);
             break;
         case NODE_EXPRESSION:
-            freeASTNode(node->data.expression.sub_expression);
+            freeASTNode(node->data.expression.expression);
             break;
         case NODE_IDENTIFIER:
             free(node->data.identifier.value);
@@ -322,9 +339,10 @@ void freeASTNode(ASTNode* node) {
     }
     
     // Free the next node in the chain if there is one
-    if (node->next) {
-        freeASTNode(node->next);
+    for (int i = 0; i < node->num_children; ++i) {
+        freeASTNode(node->children[i]);
     }
+    free(node->children);
     
     // Finally, free the node itself
     free(node);
@@ -336,10 +354,12 @@ Function to parse program
 ASTNode* parseProgram(Token** tokens) {
     ASTNode* root = createProgramNode();
     while ((*tokens)->type != TOKEN_EOF) {
-        addASTChild(root, parseStatement(tokens));
+        ASTNode* child = parseStatement(tokens);
+        addASTChild(root, child);
     }
     return root;
 }
+
 
 ASTNode* parseDeclaration(Token** tokens) {
     if ((*tokens)->type == TOKEN_KEYWORD) {
@@ -348,7 +368,7 @@ ASTNode* parseDeclaration(Token** tokens) {
         if ((*tokens)->type == TOKEN_IDENTIFIER) {
             char* identifier = strdup((*tokens)->value); // Copy the identifier string
             (*tokens)++; // Move past the identifier
-            ASTNode* declarationNode = createDeclarationNode(type, identifier);
+            ASTNode* declarationNode = createDeclarationNode(identifier);
             free(type);
             free(identifier);
             return declarationNode;
@@ -390,7 +410,6 @@ ASTNode* parseStatement(Token** tokens) {
     // Error handling: unknown statement type
     return NULL;
 }
-
 
 ASTNode* parseAssignment(Token** tokens) {
     if ((*tokens)->type == TOKEN_IDENTIFIER) {
