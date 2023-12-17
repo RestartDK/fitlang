@@ -6,156 +6,11 @@
 #include <err.h>
 #include "lexer.c"
 
-void freeAST(ASTNode* root) {
-    if (!root) return;
-
-    // Free children recursively
-    for (int i = 0; i < root->childrenCount; i++) {
-        freeAST(root->children[i]);
-    }
-
-    // Free the children array
-    free(root->children);
-
-    // Free node-specific data
-    switch (root->type) {
-        case NODE_PROGRAM:
-            break;
-        case NODE_CLIENT_PROFILE:
-            free(root->data.clientProfile.name);
-            break;
-        case NODE_PLAN:
-            free(root->data.plan.name);
-            break;
-        case NODE_DAY:
-            free(root->data.day.name);
-            break;
-        case NODE_EXERCISE:
-            free(root->data.exercise.name);
-            break;
-        case NODE_SHOW_PLANS:
-            free(root->data.showPlans.client);
-            break;
-        case NODE_LITERAL:
-            free(root->data.literal.value);
-            break;
-        case NODE_IDENTIFIER:
-            free(root->data.identifier.name);
-            break;
-        case NODE_ASSIGNMENT:
-            free(root->data.assignment.client);
-            break;
-        // Add cases for other types as needed
-    }
-
-    // Finally, free the node itself
-    free(root);
-}
-
-void addASTChildNode(ASTNode* parent, ASTNode* child) {
-    if (!parent || !child) return;
-
-    // Resize children array to accommodate new child
-    parent->childrenCount++;
-    parent->children = realloc(parent->children, sizeof(ASTNode*) * parent->childrenCount);
-    parent->children[parent->childrenCount - 1] = child;
-}
-
-ASTNode* createASTNode(NodeType type, const char* value) {
-    printf("Creating node with type: %d, value: %s\n", type, value);
-
-    ASTNode* node = malloc(sizeof(ASTNode));
-    if (!node) {
-        printf("Failed to allocate memory for node\n");
-        return NULL;
-    }
-
-    node->type = type;
-    node->children = NULL;
-    node->childrenCount = 0;
-
-    // Initialize node-specific data
+/***
+ * Helper functions
+*/
+bool isDayToken(TokenType type) {
     switch (type) {
-        case NODE_PROGRAM:
-            printf("Creating NODE_PROGRAM\n");
-            break;
-        case NODE_CLIENT_PROFILE:
-            node->data.clientProfile.name = strdup(value);
-            printf("Creating NODE_CLIENT_PROFILE with name: %s\n", node->data.clientProfile.name);
-            break;
-        case NODE_IDENTIFIER:
-            node->data.identifier.name = strdup(value);
-            printf("Creating NODE_IDENTIFIER with name: %s\n", node->data.identifier.name);
-            break;
-        case NODE_PLAN:
-            node->data.plan.name = strdup(value);
-            printf("Creating NODE_PLAN with name: %s  For client: %s\n", node->data.plan.name, node->data.clientProfile.name);
-            break;
-        case NODE_DAY:
-            node->data.day.name = strdup(value);
-            printf("Creating NODE_DAY with name: %s\n", node->data.day.name);
-            break;
-        case NODE_EXERCISE:
-            node->data.exercise.name = strdup(value);
-            printf("Creating NODE_EXERCISE with name: %s\n", node->data.exercise.name);
-            break;
-        case NODE_SHOW_PLANS:
-            // Allocate memory for the client node within showPlans
-            node->data.showPlans.client = malloc(sizeof(ASTClientProfile));
-            if (node->data.showPlans.client == NULL) {
-                printf("Failed to allocate memory for showPlans client\n");
-                free(node); // Don't forget to free the allocated node
-                return NULL;
-            }
-            // Now it's safe to duplicate the value
-            node->data.showPlans.client = strdup(value);
-            printf("Creating NODE_SHOW_PLANS with client name: %s\n", node->data.showPlans.client);
-            break;
-        case NODE_SETS:
-            node->data.exercise.sets = atoi(value);
-            printf("Creating NODE_SETS with sets: %d\n", node->data.exercise.sets);
-            break;
-        case NODE_REST:
-            node->data.exercise.rest = atoi(value);
-            printf("Creating NODE_REST with rest: %d\n", node->data.exercise.rest);
-            break;
-        case NODE_LITERAL:
-            node->data.literal.value = strdup(value);
-            printf("Creating NODE_LITERAL with value: %s\n", node->data.literal.value);
-            break;
-        case NODE_ASSIGNMENT:
-            node->data.assignment.client = strdup(value);
-            node->data.assignment.plan = strdup(value);
-            printf("Creating NODE_ASSIGNMENT with client name: %s\n", node->data.assignment.client);
-            break;
-        // Add similar print statements for other cases
-    }
-
-    return node;
-}
-
-ASTNode* parseClientProfile(Token** tokens, int* position) {
-    if (tokens[*position]->type != TOKEN_CLIENT_PROFILE) {
-        // Error handling: Expected client profile token
-        return NULL;
-    }
-    (*position)++;
-
-    if (tokens[*position]->type != TOKEN_IDENTIFIER) {
-        // Error handling: Expected identifier after client profile
-        return NULL;
-    }
-
-    ASTNode* clientProfileNode = createASTNode(NODE_CLIENT_PROFILE, tokens[*position]->value);
-    (*position)++;
-
-    return clientProfileNode;
-}
-
-bool isDayToken(Token* token) {
-    if (!token) return false;
-
-    switch (token->type) {
         case TOKEN_MONDAY:
         case TOKEN_TUESDAY:
         case TOKEN_WEDNESDAY:
@@ -169,230 +24,521 @@ bool isDayToken(Token* token) {
     }
 }
 
-ASTNode* parseExercise(Token** tokens, int* position) {
-    if (tokens[*position]->type != TOKEN_EXERCISE) {
-        // Error handling: Expected 'exercise' token
-        return NULL;
+/***
+ * AST functions
+*/
+
+// Create a new AST node
+ASTNode* createASTNode(NodeType type, const char* value, int intValue) {
+    ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
+    if (node == NULL) {
+        fprintf(stderr, "Failed to allocate memory for ASTNode.\n");
+        exit(EXIT_FAILURE);
     }
-    (*position)++;
-
-    // Parse the exercise name
-    if (tokens[*position]->type != TOKEN_STRING_LITERAL) {
-        // Error handling: Expected a string literal for exercise name
-        return NULL;
+    
+    // Initialize the node
+    node->type = type;
+    node->children = NULL;
+    node->childrenCount = 0;
+    
+    // Set the data based on the node type
+    switch (type) {
+        case NODE_MAIN:
+            // Initialize the data for NODE_MAIN (if needed)
+            break;
+        case NODE_IDENTIFIER:
+            // Initialize the data for NODE_IDENTIFIER (if needed)
+            if (value != NULL) {
+                node->data.identifier.name = strdup(value);
+            }
+            break;
+        case NODE_CLIENT_PROFILE:
+            // Initialize the data for NODE_CLIENT_PROFILE (if needed)
+            if (value != NULL) {
+                node->data.clientProfile.name = strdup(value);
+            }
+            break;
+        case NODE_ASSIGNMENT:
+            // Initialize the data for NODE_ASSIGNMENT (if needed)
+            break;
+        case NODE_DAY:
+            // Initialize the data for NODE_DAY (if needed)
+            if (value != NULL) {
+                node->data.day.name = strdup(value);
+            }
+            break;
+        // Add cases for other node types as needed...
+        default:
+            break;
     }
-    char* exerciseName = strdup(tokens[*position]->value);
-    (*position)++;
-
-    // Create exercise node
-    ASTNode* exerciseNode = createASTNode(NODE_EXERCISE, exerciseName);
-    free(exerciseName);
-
-    // Initial values for sets and rest
-    int sets = 0, rest = 0;
-
-    // Parse sets
-    if (tokens[*position]->type == TOKEN_SETS) {
-        (*position)++;
-        if (tokens[*position]->type != TOKEN_INT_LITERAL) {
-            // Error handling: Expected an integer literal for sets
-            freeAST(exerciseNode);
-            return NULL;
-        }
-        sets = atoi(tokens[*position]->value); // Convert string to integer
-        (*position)++;
+    
+    // Set the integer value (if applicable)
+    if (type == NODE_LITERAL) {
+        node->data.literal.value = intValue;
     }
-
-    // Parse rest
-    if (tokens[*position]->type == TOKEN_REST) {
-        (*position)++;
-        if (tokens[*position]->type != TOKEN_INT_LITERAL) {
-            // Error handling: Expected an integer literal for rest
-            freeAST(exerciseNode);
-            return NULL;
-        }
-        rest = atoi(tokens[*position]->value); // Convert string to integer
-        (*position)++;
-    }
-
-    // Add sets and rest to exerciseNode's data
-    exerciseNode->data.exercise.sets = sets;
-    exerciseNode->data.exercise.rest = rest;
-
-    return exerciseNode;
+    
+    return node;
 }
 
-ASTNode* parseDay(Token** tokens, int* position) {
-    // Ensure the current token is a day
-    if (!isDayToken(tokens[*position])) {
-        // Error handling: Expected a day token (e.g., TOKEN_MONDAY)
+// Add a child node to an existing AST node
+void addASTChildNode(ASTNode* parent, ASTNode* child) {
+    if (parent == NULL || child == NULL) {
+        fprintf(stderr, "Invalid parent or child node.\n");
+        return;
+    }
+    
+    // Increment the children count
+    parent->childrenCount++;
+    
+    // Reallocate memory for children array
+    parent->children = (ASTNode**)realloc(parent->children, parent->childrenCount * sizeof(ASTNode*));
+    if (parent->children == NULL) {
+        fprintf(stderr, "Failed to allocate memory for children array.\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    // Add the child node to the parent's children array
+    parent->children[parent->childrenCount - 1] = child;
+}
+
+// Free the entire AST
+void freeAST(ASTNode* root) {
+    if (root == NULL) {
+        return;
+    }
+    
+    // Recursively free child nodes
+    for (int i = 0; i < root->childrenCount; i++) {
+        freeAST(root->children[i]);
+    }
+    
+    // Free data associated with the node
+    switch (root->type) {
+        case NODE_IDENTIFIER:
+            free(root->data.identifier.name);
+            break;
+        case NODE_CLIENT_PROFILE:
+            free(root->data.clientProfile.name);
+            break;
+        case NODE_DAY:
+            free(root->data.day.name);
+            break;
+        // Add cases for other node types as needed...
+        default:
+            break;
+    }
+    
+    // Free the children array and the node itself
+    free(root->children);
+    free(root);
+}
+
+
+
+/***
+ * All parsing functions for each node type
+*/
+
+// Parse a client profile
+ASTNode* parseClientProfile(Token*** tokens) {
+    if ((*tokens)[0]->type != TOKEN_CLIENT_PROFILE) {
+        fprintf(stderr, "Expected client profile declaration, got %s\n", (*tokens)[0]->value);
+        return NULL;
+    }
+    (*tokens)++;  // Consume TOKEN_CLIENT_PROFILE
+
+    if ((*tokens)[0]->type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Expected identifier for client profile, got %s\n", (*tokens)[0]->value);
         return NULL;
     }
 
-    char* dayName = strdup(tokens[*position]->value); // Get the day's name
-    (*position)++;
+    ASTNode* node = createASTNode(NODE_CLIENT_PROFILE, (*tokens)[0]->value, 0);
+    (*tokens)++;  // Consume TOKEN_IDENTIFIER
 
-    ASTNode* dayNode = createASTNode(NODE_DAY, dayName);
-    free(dayName);
+    if ((*tokens)[0]->type != TOKEN_SEMICOLON) {
+        fprintf(stderr, "Expected semicolon, got %s\n", (*tokens)[0]->value);
+        freeAST(node);
+        return NULL;
+    }
+    (*tokens)++;  // Consume TOKEN_SEMICOLON
+
+    return node;
+}
+
+// Parse a showPlans statement
+ASTNode* parseShowPlans(Token** tokens) {
+    // Expecting a TOKEN_IDENTIFIER token (the client name)
+    if (tokens[0]->type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Expected an identifier for client name in showPlans, got %s\n", tokens[0]->value);
+        return NULL;
+    }
+
+    // Create a new node for showPlans
+    ASTNode* node = createASTNode(NODE_SHOW_PLANS, tokens[0]->value, 0);
+    if (!node) return NULL;
+
+    // Consume the client name token
+    free(tokens[0]);
+    tokens++;
+
+    // Expecting a semicolon
+    if (tokens[0]->type != TOKEN_SEMICOLON) {
+        fprintf(stderr, "Expected a semicolon after showPlans, got %s\n", tokens[0]->value);
+        freeAST(node);
+        return NULL;
+    }
+
+    // Consume the semicolon
+    free(tokens[0]);
+    tokens++;
+
+    return node;
+}
+
+// Parse an exercise
+ASTNode* parseExercise(Token** tokens) {
+    // Expecting a TOKEN_IDENTIFIER token (the exercise name)
+    if (tokens[0]->type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Expected an identifier for exercise name, got %s\n", tokens[0]->value);
+        return NULL;
+    }
+
+    // Create a new node for exercise
+    ASTNode* node = createASTNode(NODE_EXERCISE, tokens[0]->value, 0);
+    if (!node) return NULL;
+
+    // Consume the exercise name token
+    free(tokens[0]);
+    tokens++;
+
+    // Initialize exercise attributes
+    int sets = 0;
+    int rest = 0;
+
+    // Parse exercise attributes
+    while (tokens[0]->type == TOKEN_PIPE) {
+        // Consume the pipe token
+        free(tokens[0]);
+        tokens++;
+
+        if (tokens[0]->type == TOKEN_IDENTIFIER) {
+            // Parse exercise attribute
+            if (strcmp(tokens[0]->value, "sets") == 0) {
+                // Consume the "sets" token
+                free(tokens[0]);
+                tokens++;
+
+                // Expecting a colon
+                if (tokens[0]->type == TOKEN_COLON) {
+                    // Consume the colon
+                    free(tokens[0]);
+                    tokens++;
+
+                    // Expecting an integer literal
+                    if (tokens[0]->type == TOKEN_INT_LITERAL) {
+                        sets = atoi(tokens[0]->value);
+
+                        // Consume the integer literal token
+                        free(tokens[0]);
+                        tokens++;
+                    } else {
+                        fprintf(stderr, "Expected an integer literal for 'sets', got %s\n", tokens[0]->value);
+                        freeAST(node);
+                        return NULL;
+                    }
+                } else {
+                    fprintf(stderr, "Expected a colon after 'sets', got %s\n", tokens[0]->value);
+                    freeAST(node);
+                    return NULL;
+                }
+            } else if (strcmp(tokens[0]->value, "rest") == 0) {
+                // Consume the "rest" token
+                free(tokens[0]);
+                tokens++;
+
+                // Expecting a colon
+                if (tokens[0]->type == TOKEN_COLON) {
+                    // Consume the colon
+                    free(tokens[0]);
+                    tokens++;
+
+                    // Expecting an integer literal
+                    if (tokens[0]->type == TOKEN_INT_LITERAL) {
+                        rest = atoi(tokens[0]->value);
+
+                        // Consume the integer literal token
+                        free(tokens[0]);
+                        tokens++;
+                    } else {
+                        fprintf(stderr, "Expected an integer literal for 'rest', got %s\n", tokens[0]->value);
+                        freeAST(node);
+                        return NULL;
+                    }
+                } else {
+                    fprintf(stderr, "Expected a colon after 'rest', got %s\n", tokens[0]->value);
+                    freeAST(node);
+                    return NULL;
+                }
+            } else {
+                fprintf(stderr, "Unexpected token after exercise name: %s\n", tokens[0]->value);
+                freeAST(node);
+                return NULL;
+            }
+        } else {
+            fprintf(stderr, "Expected an identifier after pipe in exercise, got %s\n", tokens[0]->value);
+            freeAST(node);
+            return NULL;
+        }
+    }
+
+    // Set exercise attributes in the node
+    node->data.exercise.sets = sets;
+    node->data.exercise.rest = rest;
+
+    return node;
+}
+
+// Parse a day
+ASTNode* parseDay(Token** tokens) {
+    // Expecting a TOKEN_IDENTIFIER token (the day name)
+    if (tokens[0]->type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Expected an identifier for day name, got %s\n", tokens[0]->value);
+        return NULL;
+    }
+
+    // Create a new node for day
+    ASTNode* node = createASTNode(NODE_DAY, tokens[0]->value, 0);
+    if (!node) return NULL;
+
+    // Consume the day name token
+    free(tokens[0]);
+    tokens++;
+
+    // Expecting a left brace
+    if (tokens[0]->type != TOKEN_LEFT_BRACE) {
+        fprintf(stderr, "Expected a left brace after day name, got %s\n", tokens[0]->value);
+        freeAST(node);
+        return NULL;
+    }
+
+    // Consume the left brace
+    free(tokens[0]);
+    tokens++;
 
     // Parse exercises for the day
-    while (tokens[*position]->type == TOKEN_EXERCISE) {
-        ASTNode* exerciseNode = parseExercise(tokens, position);
-        if (exerciseNode == NULL) {
-            // Error handling
-            freeAST(dayNode);
+    while (tokens[0]->type != TOKEN_RIGHT_BRACE) {
+        if (tokens[0]->type == TOKEN_IDENTIFIER) {
+            // Parse an exercise
+            ASTNode* exerciseNode = parseExercise(tokens);
+            if (exerciseNode) {
+                // Add the exercise node as a child
+                addASTChildNode(node, exerciseNode);
+            } else {
+                // Error parsing exercise, cleanup and return NULL
+                freeAST(node);
+                return NULL;
+            }
+        } else {
+            fprintf(stderr, "Expected an identifier (exercise name) in day, got %s\n", tokens[0]->value);
+            freeAST(node);
             return NULL;
         }
-        addASTChildNode(dayNode, exerciseNode);
     }
 
-    return dayNode;
+    // Expecting a right brace
+    if (tokens[0]->type != TOKEN_RIGHT_BRACE) {
+        fprintf(stderr, "Expected a right brace at the end of day, got %s\n", tokens[0]->value);
+        freeAST(node);
+        return NULL;
+    }
+
+    // Consume the right brace
+    free(tokens[0]);
+    tokens++;
+
+    return node;
 }
 
-ASTNode* parsePlan(Token** tokens, int* position, ASTNode* clientsList) {
-    if (tokens[*position]->type != TOKEN_ASSIGN) {
-        // Error handling: Expected 'assign' token
-        return NULL;
-    }
-    (*position)++;
-
-    // Parsing plan name
-    if (tokens[*position]->type != TOKEN_IDENTIFIER) {
-        // Error handling: Expected plan name as identifier
-        return NULL;
-    }
-    char* planName = strdup(tokens[*position]->value);
-    (*position)++;
-
-    // Parse the client identifier
-    if (tokens[*position]->type != TOKEN_IDENTIFIER) {
-        // Error handling: Expected client identifier
-        free(planName);
-        return NULL;
-    }
-    char* clientName = strdup(tokens[*position]->value);
-    (*position)++;
-
-    // Find the client node
-    ASTNode* clientNode = findClientNode(clientsList, clientName);
-    free(clientName);
-    if (!clientNode) {
-        // Error handling: Client not found
-        free(planName);
+// Parse an assignment
+ASTNode* parseAssignment(Token** tokens) {
+    // Expecting a TOKEN_IDENTIFIER token (the plan name)
+    if (tokens[0]->type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Expected an identifier for plan name in assignment, got %s\n", tokens[0]->value);
         return NULL;
     }
 
-    // Create plan node and link it to the client node
-    ASTNode* planNode = createASTNode(NODE_PLAN, planName);
-    planNode->data.plan.client = clientNode;
-    free(planName);
+    // Create a new node for assignment
+    ASTNode* node = createASTNode(NODE_ASSIGNMENT, tokens[0]->value, 0);
+    if (!node) return NULL;
 
-    // Parse each day within the plan
-    while (isDayToken(tokens[*position])) {
-        ASTNode* dayNode = parseDay(tokens, position);
-        if (dayNode == NULL) {
-            // Error handling
-            freeAST(planNode);
+    // Consume the plan name token
+    free(tokens[0]);
+    tokens++;
+
+    // Expecting a left brace
+    if (tokens[0]->type != TOKEN_LEFT_BRACE) {
+        fprintf(stderr, "Expected a left brace after assignment, got %s\n", tokens[0]->value);
+        freeAST(node);
+        return NULL;
+    }
+
+    // Consume the left brace
+    free(tokens[0]);
+    tokens++;
+
+    // Parse the days and exercises
+    while (tokens[0]->type != TOKEN_RIGHT_BRACE) {
+        if (tokens[0]->type == TOKEN_IDENTIFIER) {
+            // Parse a day
+            ASTNode* dayNode = parseDay(tokens);
+            if (dayNode) {
+                // Add the day node as a child
+                addASTChildNode(node, dayNode);
+            } else {
+                // Error parsing day, cleanup and return NULL
+                freeAST(node);
+                return NULL;
+            }
+        } else {
+            fprintf(stderr, "Expected an identifier (day name) in assignment, got %s\n", tokens[0]->value);
+            freeAST(node);
             return NULL;
         }
-        addASTChildNode(planNode, dayNode);
     }
 
-    return planNode;
+    // Expecting a right brace
+    if (tokens[0]->type != TOKEN_RIGHT_BRACE) {
+        fprintf(stderr, "Expected a right brace at the end of assignment, got %s\n", tokens[0]->value);
+        freeAST(node);
+        return NULL;
+    }
+
+    // Consume the right brace
+    free(tokens[0]);
+    tokens++;
+
+    // Expecting a semicolon
+    if (tokens[0]->type != TOKEN_SEMICOLON) {
+        fprintf(stderr, "Expected a semicolon after assignment, got %s\n", tokens[0]->value);
+        freeAST(node);
+        return NULL;
+    }
+
+    // Consume the semicolon
+    free(tokens[0]);
+    tokens++;
+
+    return node;
 }
 
-
-ASTNode* parseShowPlans(Token** tokens, int* position) {
-    if (tokens[*position]->type != TOKEN_SHOW_PLANS) {
-        // Error handling: Expected 'showPlans' token
-        return NULL;
-    }
-    (*position)++;
-
-    // Parse client identifier
-    if (tokens[*position]->type != TOKEN_IDENTIFIER) {
-        // Error handling: Expected identifier after 'showPlans'
+// Parse a plan
+ASTNode* parsePlan(Token** tokens) {
+    // Expecting a TOKEN_IDENTIFIER token (the plan name)
+    if (tokens[0]->type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Expected an identifier for plan name, got %s\n", tokens[0]->value);
         return NULL;
     }
 
-    ASTNode* showPlansNode = createASTNode(NODE_SHOW_PLANS, tokens[*position]->value);
-    (*position)++;
+    // Create a new node for plan
+    ASTNode* node = createASTNode(NODE_PLAN, tokens[0]->value, 0);
+    if (!node) return NULL;
 
-    return showPlansNode;
+    // Consume the plan name token
+    free(tokens[0]);
+    tokens++;
+
+    // Expecting a left brace
+    if (tokens[0]->type != TOKEN_LEFT_BRACE) {
+        fprintf(stderr, "Expected a left brace after plan name, got %s\n", tokens[0]->value);
+        freeAST(node);
+        return NULL;
+    }
+
+    // Consume the left brace
+    free(tokens[0]);
+    tokens++;
+
+    // Parse assignments for the plan
+    while (tokens[0]->type != TOKEN_RIGHT_BRACE) {
+        if (tokens[0]->type == TOKEN_IDENTIFIER) {
+            // Parse an assignment
+            ASTNode* assignmentNode = parseAssignment(tokens);
+            if (assignmentNode) {
+                // Add the assignment node as a child
+                addASTChildNode(node, assignmentNode);
+            } else {
+                // Error parsing assignment, cleanup and return NULL
+                freeAST(node);
+                return NULL;
+            }
+        } else {
+            fprintf(stderr, "Expected an identifier (day name) in plan, got %s\n", tokens[0]->value);
+            freeAST(node);
+            return NULL;
+        }
+    }
+
+    // Expecting a right brace
+    if (tokens[0]->type != TOKEN_RIGHT_BRACE) {
+        fprintf(stderr, "Expected a right brace at the end of plan, got %s\n", tokens[0]->value);
+        freeAST(node);
+        return NULL;
+    }
+
+    // Consume the right brace
+    free(tokens[0]);
+    tokens++;
+
+    // Expecting a semicolon
+    if (tokens[0]->type != TOKEN_SEMICOLON) {
+        fprintf(stderr, "Expected a semicolon after plan, got %s\n", tokens[0]->value);
+        freeAST(node);
+        return NULL;
+    }
+
+    // Consume the semicolon
+    free(tokens[0]);
+    tokens++;
+
+    return node;
 }
 
-ASTNode* parseIdentifier(Token** tokens, int* position) {
-    if (tokens[*position]->type != TOKEN_IDENTIFIER) {
-        // Error handling: Expected identifier
-        return NULL;
-    }
-    ASTNode* identifierNode = createASTNode(NODE_IDENTIFIER, tokens[*position]->value);
-    (*position)++;
-    return identifierNode;
-}
-
-ASTNode* parseAssignment(Token** tokens, int* position) {
-    // Parse client identifier
-    ASTNode* clientNode = parseIdentifier(tokens, position);
-    if (!clientNode) {
-        // Error handling: Expected identifier after 'assign'
-        return NULL;
-    }
-
-    // Parse plan identifier
-    ASTNode* planNode = parseIdentifier(tokens, position);
-    if (!planNode) {
-        // Error handling: Expected identifier after client identifier
-        freeAST(clientNode);
-        return NULL;
-    }
-
-    // Create assignment node
-    ASTNode* assignmentNode = createASTNode(NODE_ASSIGNMENT, NULL);
-    assignmentNode->data.assignment.client = clientNode;
-    assignmentNode->data.assignment.plan = planNode;
-
-    return assignmentNode;
-}
-
-ASTNode* parseLiteral(Token** tokens, int* position) {
-    if (tokens[*position]->type != TOKEN_STRING_LITERAL && tokens[*position]->type != TOKEN_INT_LITERAL) {
-        // Error handling: Expected string or integer literal
-        return NULL;
-    }
-
-    ASTNode* literalNode = createASTNode(NODE_LITERAL, tokens[*position]->value);
-    (*position)++;
-
-    return literalNode;
-}
 
 ASTNode* parseProgram(Token** tokens) {
-    ASTNode* root = createASTNode(NODE_PROGRAM, NULL);
-    int position = 0;
+    ASTNode* root = createASTNode(NODE_MAIN, NULL, 0);
+    if (!root) return NULL;
 
-    while (tokens[position] != NULL) {
-        ASTNode* node = NULL;
-
-        switch (tokens[position]->type) {
+    while (*tokens) {
+        ASTNode* child = NULL;
+        switch ((*tokens)->type) {
             case TOKEN_CLIENT_PROFILE:
-                node = parseClientProfile(tokens, &position);
+                child = parseClientProfile(tokens);
                 break;
             case TOKEN_ASSIGN:
-                node = parsePlan(tokens, &position);
+                child = parseAssignment(tokens);
                 break;
             case TOKEN_SHOW_PLANS:
-                node = parseShowPlans(tokens, &position);
+                child = parseShowPlans(tokens);
+                break;
+            case TOKEN_MONDAY:
+            case TOKEN_TUESDAY:
+            case TOKEN_WEDNESDAY:
+            case TOKEN_THURSDAY:
+            case TOKEN_FRIDAY:
+            case TOKEN_SATURDAY:
+            case TOKEN_SUNDAY:
+                child = parseDay(tokens);
                 break;
             default:
-                // Handle unexpected tokens, potentially logging an error or skipping them
-                break;
+                fprintf(stderr, "Unexpected token: %s\n", (*tokens)->value);
+                freeAST(root);
+                return NULL;
         }
 
-        if (node != NULL) {
-            addASTChildNode(root, node);
+        if (child) {
+            addASTChildNode(root, child);
         } else {
-            // Error handling: Free partial AST, display error, etc.
+            // Error occurred during parsing, cleanup and return NULL
             freeAST(root);
             return NULL;
         }
@@ -408,7 +554,7 @@ void printAST(ASTNode *node, int depth) {
     for (int i = 0; i < depth; i++) printf("  ");
 
     switch (node->type) {
-        case NODE_PROGRAM:
+        case NODE_MAIN:
             printf("Program\n");
             break;
         case NODE_IDENTIFIER:
@@ -452,38 +598,92 @@ void printAST(ASTNode *node, int depth) {
 }
 
 int main() {
+    // Test cases
+    char* sourceCode1 = "ClientProfile Daniel;";
+    char* sourceCode2 = "assign muscleBuildingPlan Daniel {\n"
+                        "    Monday {\n"
+                        "        exercise: \"squats\" | sets: 3 | rest: 1;\n"
+                        "        exercise: \"leg press\" | sets: 3 | rest: 1;\n"
+                        "    }\n"
+                        "    Tuesday {\n"
+                        "        exercise: \"bench press\" | sets: 3 | rest: 1;\n"
+                        "    }\n"
+                        "};";
+    char* sourceCode3 = "showPlans(Daniel);";
+    char* sourceCode4 = "ClientProfile Daniel;\n"
+                        "assign muscleBuildingPlan Daniel {\n"
+                        "    Monday {\n"
+                        "        exercise: \"squats\" | sets: 3 | rest: 1;\n"
+                        "        exercise: \"leg press\" | sets: 3 | rest: 1;\n"
+                        "    }\n"
+                        "    Tuesday {\n"
+                        "        exercise: \"bench press\" | sets: 3 | rest: 1;\n"
+                        "    }\n"
+                        "};\n"
+                        "showPlans(Daniel);";
+
     // Assuming readSourceCode and lexer are defined and implemented
-    char* sourceCode = "ClientProfile Daniel;\n"
-                       "assign muscleBuildingPlan Daniel {\n"
-                       "    Monday {\n"
-                       "        exercise: \"squats\" | sets: 3 | rest: 1\n"
-                       "        exercise: \"leg press\" | sets: 3 | rest: 1\n"
-                       "    }\n"
-                       "    Tuesday {\n"
-                       "        exercise: \"bench press\" | sets: 3 | rest: 1\n"
-                       "    }\n"
-                       "};\n"
-                       "showPlans(Daniel);";
+    Token** tokens;
 
-    Token** tokens = lexer(sourceCode);
-    printf("Tokens generated by lexer:\n"); // Debug print
+    // Test case 1
+    tokens = lexer(sourceCode1);
+    printf("Tokens generated by lexer for Test Case 1:\n");
     for (int i = 0; tokens[i] != NULL; i++) {
-        printf("Token %d: type = %d, value = %s\n", i, tokens[i]->type, tokens[i]->value); // Debug print
+        printf("Token %d: type = %d, value = %s\n", i, tokens[i]->type, tokens[i]->value);
     }
-
-    // Parse the tokens to construct the AST
-    ASTNode* ast = parseProgram(tokens);
-    printf("AST generated by parser:\n"); // Debug print
-
-    if (ast == NULL) {
-        fprintf(stderr, "Error in parsing the program.\n");
+    ASTNode* ast1 = parseProgram(tokens);
+    printf("AST generated by parser for Test Case 1:\n");
+    if (ast1 == NULL) {
+        fprintf(stderr, "Error in parsing Test Case 1.\n");
     } else {
-        // Pretty print the AST for debugging
-        printAST(ast, 0);
+        printAST(ast1, 0);
     }
+    freeAST(ast1);
 
-    // Cleanup
-    freeAST(ast);
+    // Test case 2
+    tokens = lexer(sourceCode2);
+    printf("Tokens generated by lexer for Test Case 2:\n");
+    for (int i = 0; tokens[i] != NULL; i++) {
+        printf("Token %d: type = %d, value = %s\n", i, tokens[i]->type, tokens[i]->value);
+    }
+    ASTNode* ast2 = parseProgram(tokens);
+    printf("AST generated by parser for Test Case 2:\n");
+    if (ast2 == NULL) {
+        fprintf(stderr, "Error in parsing Test Case 2.\n");
+    } else {
+        printAST(ast2, 0);
+    }
+    freeAST(ast2);
 
-    return ast != NULL ? EXIT_SUCCESS : EXIT_FAILURE;
+    // Test case 3
+    tokens = lexer(sourceCode3);
+    printf("Tokens generated by lexer for Test Case 3:\n");
+    for (int i = 0; tokens[i] != NULL; i++) {
+        printf("Token %d: type = %d, value = %s\n", i, tokens[i]->type, tokens[i]->value);
+    }
+    ASTNode* ast3 = parseProgram(tokens);
+    printf("AST generated by parser for Test Case 3:\n");
+    if (ast3 == NULL) {
+        fprintf(stderr, "Error in parsing Test Case 3.\n");
+    } else {
+        printAST(ast3, 0);
+    }
+    freeAST(ast3);
+
+    // Test case 4
+    tokens = lexer(sourceCode4);
+    printf("Tokens generated by lexer for Test Case 4:\n");
+    for (int i = 0; tokens[i] != NULL; i++) {
+        printf("Token %d: type = %d, value = %s\n", i, tokens[i]->type, tokens[i]->value);
+    }
+    ASTNode* ast4 = parseProgram(tokens);
+    printf("AST generated by parser for Test Case 4:\n");
+    if (ast4 == NULL) {
+        fprintf(stderr, "Error in parsing Test Case 4.\n");
+    } else {
+        printAST(ast4, 0);
+    }
+    freeAST(ast4);
+
+    return EXIT_SUCCESS;
 }

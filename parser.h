@@ -5,7 +5,7 @@
 
 // Define the types of nodes that can appear in the AST
 typedef enum {
-    NODE_PROGRAM,        // Represents the entire program
+    NODE_MAIN,        // Represents the entire program
     NODE_CLIENT_PROFILE, // Represents a client profile
     NODE_PLAN,           // Represents a training plan
     NODE_EXERCISE,       // Represents an exercise within a plan
@@ -21,66 +21,56 @@ typedef enum {
 // Define the structure of an AST node
 typedef struct ASTNode ASTNode;
 
+// Define the structure of the AST
 typedef struct {
-    ASTNode* program;
-} ASTProgram;
-
-// Define identifier node
-typedef struct {
-    char* name; // Name of the identifier
-} ASTIdentifier;
-
-// Structures for different node types
-typedef struct {
-    char* name; // Name of the client
-} ASTClientProfile;
+    // For NODE_MAIN, might not need additional data if it's just a container for the top-level elements
+} ASTMain;
 
 typedef struct {
-    ASTNode* client;
-} ASTShowPlans;
-
-typedef struct {
-    ASTNode* client;
-    ASTNode* plan;
+    ASTNode* client; // Points to the client node for an assignment
+    ASTNode* plan;   // Points to the plan node for an assignment
 } ASTAssignment;
 
 typedef struct {
-    char* name; // Name of the day
-    ASTNode** exercises;
-    int exercisesCount;
-} ASTDay;
+    char* name; // Client name for NODE_CLIENT_PROFILE
+} ASTClientProfile;
 
 typedef struct {
-    char* name; // Name of the exercise
+    char* name; // Plan name for NODE_PLAN
+} ASTPlan;
+
+typedef struct {
+    char* name; // Exercise name for NODE_EXERCISE
     int sets;
     int rest;
 } ASTExercise;
 
 typedef struct {
-    char* name; // Name of the day
-    ASTNode* exercises;
-} ASTDayName;
+    char* name; // Day name for NODE_DAY
+} ASTDay;
 
 typedef struct {
-    char* name; // Name of the plan
-    ASTNode* client; // Pointer to the corresponding client node
-    ASTNode* days; // Points to the days within the plan
-} ASTPlan;
+    char* clientName; // Client name for NODE_SHOW_PLANS
+} ASTShowPlans;
 
 typedef struct {
-    char* value; // Value of the literal
+    int value; // Numeric value for NODE_LITERAL
 } ASTLiteral;
+
+typedef struct {
+    char* name; // Identifier name for NODE_IDENTIFIER
+} ASTIdentifier;
+
 
 // Tagged union to represent node data
 typedef union {
-    ASTProgram program;
+    ASTMain main;
     ASTIdentifier identifier;
     ASTClientProfile clientProfile;
     ASTAssignment assignment;
     ASTDay day;
     ASTExercise exercise;
     ASTShowPlans showPlans;
-    ASTDayName dayName;
     ASTPlan plan;
     ASTLiteral literal;
 } ASTNodeData;
@@ -94,7 +84,7 @@ struct ASTNode {
 };
 
 // Function declarations for creating and manipulating AST nodes
-ASTNode* createASTNode(NodeType type, const char* value);
+ASTNode* createASTNode(NodeType type, const char* value, int intValue);
 void addASTChildNode(ASTNode* parent, ASTNode* child);
 void freeAST(ASTNode* root);
 

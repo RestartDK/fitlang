@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "lexer.h" 
+#include "lexer.h"
 #include <stdbool.h>
 #define INITIAL_SIZE 32
 
@@ -15,7 +15,6 @@ bool is_identifier_char(char c) {
 }
 
 TokenType identifyKeywordOrIdentifier(const char* word) {
-    // Compare the word with each of your language's keywords
     if (strcmp(word, "ClientProfile") == 0) {
         return TOKEN_CLIENT_PROFILE;
     } else if (strcmp(word, "assign") == 0) {
@@ -43,43 +42,36 @@ TokenType identifyKeywordOrIdentifier(const char* word) {
     } else if (strcmp(word, "showPlans") == 0) {
         return TOKEN_SHOW_PLANS;
     }
-    // If it doesn't match any keyword, it's an identifier
+    // "plan" and all other unrecognized words are identifiers
     return TOKEN_IDENTIFIER;
 }
 
 // Create the Tokens
 Token* createToken(TokenType type, const char* value) {
-    // Allocate memory for the Token structure
     Token* token = (Token*)malloc(sizeof(Token));
     if (!token) {
-        return NULL; // Return NULL if memory allocation fails
-    }
-
-    // Duplicate the string value to ensure the token owns its value
-    token->value = strdup(value);
-    if (!token->value) {
-        free(token); // Free the previously allocated Token structure if strdup fails
         return NULL;
     }
 
-    // Set the token type
-    token->type = type;
+    token->value = strdup(value);
+    if (!token->value) {
+        free(token);
+        return NULL;
+    }
 
+    token->type = type;
     return token;
 }
 
 Token** lexer(const char* input) {
-    // Dynamic array for storing tokens
-    Token** tokens = malloc(sizeof(Token*) * INITIAL_SIZE); // Define INITIAL_SIZE as appropriate
+    Token** tokens = malloc(sizeof(Token*) * INITIAL_SIZE);
     int tokenCount = 0;
     int capacity = INITIAL_SIZE;
 
     while (*input != '\0') {
         if (isspace(*input)) {
-            // Skip whitespace
             input++;
         } else if (is_identifier_start(*input)) {
-            // Handle identifiers and keywords
             const char* start = input;
             while (is_identifier_char(*input)) input++;
 
@@ -93,8 +85,7 @@ Token** lexer(const char* input) {
                 tokens = realloc(tokens, sizeof(Token*) * capacity);
             }
         } else if (*input == '"') {
-            // Handle string literals
-            input++; // Skip the opening quote
+            input++;
             const char* start = input;
             while (*input && *input != '"') input++;
             if (*input == '"') {
@@ -102,12 +93,11 @@ Token** lexer(const char* input) {
                 char* literal = strndup(start, length);
                 tokens[tokenCount++] = createToken(TOKEN_STRING_LITERAL, literal);
                 free(literal);
-                input++; // Skip the closing quote
+                input++;
             } else {
                 // Handle unterminated string literal error
             }
         } else if (isdigit(*input)) {
-            // Handle numeric literals
             const char* start = input;
             while (isdigit(*input)) input++;
             size_t length = input - start;
@@ -115,7 +105,6 @@ Token** lexer(const char* input) {
             tokens[tokenCount++] = createToken(TOKEN_INT_LITERAL, number);
             free(number);
         } else {
-            // Handle single character tokens
             switch (*input) {
                 case '{':
                     tokens[tokenCount++] = createToken(TOKEN_LEFT_BRACE, "{");
@@ -129,32 +118,31 @@ Token** lexer(const char* input) {
                 case '|':
                     tokens[tokenCount++] = createToken(TOKEN_PIPE, "|");
                     break;
-                // Add cases for other single character tokens
+                case ';':
+                    tokens[tokenCount++] = createToken(TOKEN_SEMICOLON, ";");
+                    break;
+                // Add cases for other single-character tokens as needed
             }
             input++;
         }
 
-        // Check if resizing is needed
         if (tokenCount >= capacity) {
             capacity *= 2;
             Token** resized = realloc(tokens, sizeof(Token*) * capacity);
             if (!resized) {
-                // Handle memory allocation failure
                 for (int i = 0; i < tokenCount; ++i) {
-                    free(tokens[i]->value); // Free the token value
-                    free(tokens[i]);        // Free the token itself
+                    free(tokens[i]->value);
+                    free(tokens[i]);
                 }
-                free(tokens); // Free the tokens array
+                free(tokens);
                 return NULL;
             }
             tokens = resized;
         }
     }
 
-    // Final resizing to trim the excess capacity, plus one for NULL sentinel
     Token** resized = realloc(tokens, sizeof(Token*) * (tokenCount + 1));
     if (!resized) {
-        // Handle memory allocation failure similarly as above
         for (int i = 0; i < tokenCount; ++i) {
             free(tokens[i]->value);
             free(tokens[i]);
@@ -163,7 +151,7 @@ Token** lexer(const char* input) {
         return NULL;
     }
     tokens = resized;
-    tokens[tokenCount] = NULL; // Add NULL sentinel at the end
+    tokens[tokenCount] = NULL;
 
     return tokens;
 }
@@ -181,10 +169,10 @@ void testLexer(const char* input) {
     printf("Testing Lexer with input: %s\n", input);
     Token** tokens = lexer(input);
 
-    // Assuming you have a NULL sentinel at the end of your tokens array
     for (int i = 0; tokens[i] != NULL; i++) {
         printToken(tokens[i]);
-        free(tokens[i]); // Don't forget to free each token after use
+        free(tokens[i]->value);
+        free(tokens[i]);
     }
-    free(tokens); // Free the array of tokens itself
+    free(tokens);
 }
