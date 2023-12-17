@@ -2,6 +2,8 @@
 #define PARSER_H
 
 #include <stdlib.h>
+#include "lexer.h"
+
 
 // Define the types of nodes that can appear in the AST
 typedef enum {
@@ -87,5 +89,7 @@ struct ASTNode {
 ASTNode* createASTNode(NodeType type, const char* value, int intValue);
 void addASTChildNode(ASTNode* parent, ASTNode* child);
 void freeAST(ASTNode* root);
+struct ASTNode* parseProgram(Token** tokens);
+void printAST(struct ASTNode* ast, int indentLevel);
 
 #endif

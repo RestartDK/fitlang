@@ -144,3 +144,5 @@ int performSemanticAnalysis(struct ASTNode* node, struct SymbolTable* table) {
 
     return SEMANTIC_OK;
 }
+}
+

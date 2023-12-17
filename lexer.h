@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+
 // Token types
 typedef enum {
     TOKEN_CLIENT_PROFILE,
