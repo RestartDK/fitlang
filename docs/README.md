@@ -6,41 +6,25 @@ The fitness industry has witnessed a growing demand for personalized workout pla
 
 FitLang addresses this challenge by providing a user-friendly and domain-specific language tailored to the needs of fitness professionals. It allows trainers and administrators to define client profiles, assign workout plans, and easily manage exercise details, sets, and rest times without the complexities of traditional programming languages.
 
-# Additional Links
-To read the documentation please click [FitLang Documentation](https://fitlang.gitbook.io/fitlang/) to read more
-# Structure
 
-{% content-ref url="lexer.md" %}
-[lexer.md](lexer.md)
-{% endcontent-ref %}
 
-{% content-ref url="parser-and-ast.md" %}
-[parser-and-ast.md](parser-and-ast.md)
-{% endcontent-ref %}
+### Structure
 
-{% content-ref url="semantic-analysis.md" %}
-[semantic-analysis.md](semantic-analysis.md)
-{% endcontent-ref %}
+[lexer.md](lexer.md "mention")
 
-{% content-ref url="interpreter.md" %}
-[interpreter.md](interpreter.md)
-{% endcontent-ref %}
+[parser-and-ast.md](parser-and-ast.md "mention")
 
-{% content-ref url="language-specifications.md" %}
-[language-specifications.md](language-specifications.md)
-{% endcontent-ref %}
+[semantic-analysis.md](semantic-analysis.md "mention")
 
-{% content-ref url="getting-started.md" %}
-[getting-started.md](getting-started.md)
-{% endcontent-ref %}
+[interpreter.md](interpreter.md "mention")
 
-{% content-ref url="language-design.md" %}
-[language-design.md](language-design.md)
-{% endcontent-ref %}
+[language-specifications.md](language-specifications.md "mention")
 
-{% content-ref url="sample-program.md" %}
-[sample-program.md](sample-program.md)
-{% endcontent-ref %}
+[getting-started.md](getting-started.md "mention")
+
+[language-design.md](language-design.md "mention")
+
+[sample-program.md](sample-program.md "mention")
 
 
 
