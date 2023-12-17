@@ -3,7 +3,7 @@
 
 #include "parser.h"
 
-// Define semantic types for GymLang
+// Define semantic types for FitLang
 #define TYPE_INTEGER 0
 #define TYPE_IDENTIFIER 1
 #define TYPE_PLAN 2
@@ -37,7 +37,12 @@
 struct Symbol {
     char* name;
     int type;
+    union {
+        char* strValue;
+        int intValue;
+    } value;
 };
+
 
 // Symbol Table structure
 struct SymbolTable {
@@ -49,7 +54,7 @@ struct SymbolTable {
 // Function prototypes for symbol table management
 struct SymbolTable* createSymbolTable();
 void freeSymbolTable(struct SymbolTable* table);
-int addSymbol(struct SymbolTable* table, const char* name, int type);
+int addSymbol(struct SymbolTable* table, const char* name, int type, int intValue);
 struct Symbol* findSymbol(const struct SymbolTable* table, const char* name);
 
 // Function prototype for semantic analysis
