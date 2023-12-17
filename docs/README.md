@@ -10,16 +10,38 @@ FitLang addresses this challenge by providing a user-friendly and domain-specifi
 
 ### Structure
 
-[lexer.md](lexer.md "mention")
+{% content-ref url="lexer.md" %}
+[lexer.md](lexer.md)
+{% endcontent-ref %}
 
-[parser-and-ast.md](parser-and-ast.md "mention")
+{% content-ref url="parser-and-ast.md" %}
+[parser-and-ast.md](parser-and-ast.md)
+{% endcontent-ref %}
 
-[interpreter.md](interpreter.md "mention")
+{% content-ref url="semantic-analysis.md" %}
+[semantic-analysis.md](semantic-analysis.md)
+{% endcontent-ref %}
 
-[language-specifications.md](language-specifications.md "mention")
+{% content-ref url="interpreter.md" %}
+[interpreter.md](interpreter.md)
+{% endcontent-ref %}
 
-[getting-started.md](getting-started.md "mention")
+{% content-ref url="language-specifications.md" %}
+[language-specifications.md](language-specifications.md)
+{% endcontent-ref %}
 
-[language-design.md](language-design.md "mention")
+{% content-ref url="getting-started.md" %}
+[getting-started.md](getting-started.md)
+{% endcontent-ref %}
 
-[sample-program.md](sample-program.md "mention")
+{% content-ref url="language-design.md" %}
+[language-design.md](language-design.md)
+{% endcontent-ref %}
+
+{% content-ref url="sample-program.md" %}
+[sample-program.md](sample-program.md)
+{% endcontent-ref %}
+
+
+
+\
