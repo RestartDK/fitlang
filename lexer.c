@@ -19,6 +19,8 @@ TokenType identifyKeywordOrIdentifier(const char* word) {
         return TOKEN_CLIENT_PROFILE;
     } else if (strcmp(word, "assign") == 0) {
         return TOKEN_ASSIGN;
+    } else if (strcmp(word, "to") == 0) {
+        return TOKEN_TO;
     } else if (strcmp(word, "Monday") == 0) {
         return TOKEN_MONDAY;
     } else if (strcmp(word, "Tuesday") == 0) {
