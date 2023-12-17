@@ -6,9 +6,9 @@ The fitness industry has witnessed a growing demand for personalized workout pla
 
 FitLang addresses this challenge by providing a user-friendly and domain-specific language tailored to the needs of fitness professionals. It allows trainers and administrators to define client profiles, assign workout plans, and easily manage exercise details, sets, and rest times without the complexities of traditional programming languages.
 
-
-
-### Structure
+# Additional Links
+To read the documentation please click [FitLang Documentation](https://fitlang.gitbook.io/fitlang/) to read more
+# Structure
 
 {% content-ref url="lexer.md" %}
 [lexer.md](lexer.md)
