@@ -103,7 +103,6 @@ ASTNode* createASTNode(NodeType type, const char* value, int intValue) {
         case NODE_ASSIGNMENT:
             printf("NODE_ASSIGNMENT\n");
             break;
-        // ... Other cases as necessary
         case NODE_LITERAL:
             node->data.literal.value = intValue;
             printf("NODE_LITERAL, Value: %d\n", node->data.literal.value);
@@ -117,7 +116,7 @@ ASTNode* createASTNode(NodeType type, const char* value, int intValue) {
 }
 
 
-// Add a child node to an existing AST node
+// Revised addASTChildNode function
 void addASTChildNode(ASTNode* parent, ASTNode* child) {
     if (parent == NULL || child == NULL) {
         fprintf(stderr, "Invalid parent or child node.\n");
@@ -136,6 +135,8 @@ void addASTChildNode(ASTNode* parent, ASTNode* child) {
     
     // Add the child node to the parent's children array
     parent->children[parent->childrenCount - 1] = child;
+
+    printf("Debug: Added child node. Parent type: %d, Child type: %d\n", parent->type, child->type); // Debug statement
 }
 
 // Free the entire AST
@@ -396,6 +397,7 @@ ASTNode* parseAssignment(Token*** tokens) {
         fprintf(stderr, "Debug: Error - Expected 'assign', got %s\n", (**tokens)->value);
         return NULL;
     }
+    printf("Debug: Consumed 'assign' token\n");
     (*tokens)++;
 
     // Check for plan identifier
@@ -404,6 +406,7 @@ ASTNode* parseAssignment(Token*** tokens) {
         return NULL;
     }
     char* planName = strdup((**tokens)->value);
+    printf("Debug: Plan identifier: %s\n", planName);
     (*tokens)++;
 
     // Check for 'to' keyword
@@ -412,6 +415,7 @@ ASTNode* parseAssignment(Token*** tokens) {
         fprintf(stderr, "Debug: Error - Expected 'to', got %s\n", (**tokens)->value);
         return NULL;
     }
+    printf("Debug: Consumed 'to' token\n");
     (*tokens)++;
 
     // Check for client identifier
@@ -421,6 +425,7 @@ ASTNode* parseAssignment(Token*** tokens) {
         return NULL;
     }
     char* clientName = strdup((**tokens)->value);
+    printf("Debug: Client identifier: %s\n", clientName);
     (*tokens)++;
 
     // Expecting an opening brace '{'
@@ -430,10 +435,12 @@ ASTNode* parseAssignment(Token*** tokens) {
         fprintf(stderr, "Debug: Error - Expected '{', got %s\n", (**tokens)->value);
         return NULL;
     }
+    printf("Debug: Consumed opening brace '{'\n");
     (*tokens)++; // Consume opening brace '{'
 
     // Create and initialize plan node
     ASTNode* planNode = createASTNode(NODE_PLAN, planName, 0);
+    printf("Debug: Created plan node with name: %s\n", planName);
     free(planName);
 
     // Parse days inside the plan
@@ -446,13 +453,15 @@ ASTNode* parseAssignment(Token*** tokens) {
             } else {
                 free(clientName);
                 freeAST(planNode);
+                fprintf(stderr, "Debug: Error in parsing day node\n");
                 return NULL;
             }
         } else {
-            // Skip unexpected tokens
+            printf("Debug: Skipping unexpected token: %d\n", (**tokens)->type);
             (*tokens)++;
         }
     }
+    printf("Debug: Consumed closing brace '}'\n");
     (*tokens)++; // Consume closing brace '}'
 
     // Expecting a semicolon at the end of the assignment
@@ -462,22 +471,24 @@ ASTNode* parseAssignment(Token*** tokens) {
         free(clientName);
         return NULL;
     }
+    printf("Debug: Consumed semicolon\n");
     (*tokens)++; // Consume semicolon
 
     // Create client node
     ASTNode* clientNode = createASTNode(NODE_CLIENT_PROFILE, clientName, 0);
+    printf("Debug: Created client node with name: %s\n", clientName);
     free(clientName);
 
-    // Create assignment node and link plan and client
+    // Create assignment node and link client and plan
     ASTNode* assignmentNode = createASTNode(NODE_ASSIGNMENT, NULL, 0);
     assignmentNode->data.assignment.plan = planNode;
     assignmentNode->data.assignment.client = clientNode;
+    printf("Debug: Linking plan node and client node to assignment node\n");
 
-    printf("Debug: Exiting parseAssignment\n");
+    printf("Debug: Exiting parseAssignment with plan - %s and client - %s\n",
+        planNode->data.plan.name, clientNode->data.clientProfile.name);
     return assignmentNode;
 }
-
-
 
 // Parse the entire program
 ASTNode* parseProgram(Token** tokens) {
@@ -540,22 +551,23 @@ ASTNode* parseProgram(Token** tokens) {
 }
 
 
+/***
+ * AST printing functions
+*/
 
+// Print the AST
 void printAST(ASTNode* node, int depth) {
-    if (!node) {
-        printf("Debug: Null node encountered at depth %d\n", depth);
-        return;
-    }
+    if (!node) return;
 
     // Indentation for better readability
     for (int i = 0; i < depth; i++) {
-        printf("  ");
+        printf("|   ");
     }
 
-    // Print based on node type
+    // Print node information based on its type
     switch (node->type) {
         case NODE_MAIN:
-            printf("Program\n");
+            printf("Main Program\n");
             break;
         case NODE_IDENTIFIER:
             printf("Identifier: %s\n", node->data.identifier.name);
@@ -577,21 +589,29 @@ void printAST(ASTNode* node, int depth) {
                 node->data.assignment.client->data.clientProfile.name, 
                 node->data.assignment.plan->data.plan.name);
             break;
+        case NODE_SHOW_PLANS:
+            printf("ShowPlans for: %s\n", node->data.showPlans.clientName);
+            break;
+        case NODE_SETS:
+            printf("Sets: %d\n", node->data.exercise.sets);
+            break;
+        case NODE_REST:
+            printf("Rest: %d\n", node->data.exercise.rest);
+            break;
+        case NODE_LITERAL:
+            printf("Literal: %d\n", node->data.literal.value);
+            break;
+        // Add other cases as necessary
         default:
-            printf("Unknown NodeType\n");
+            printf("Unknown Node\n");
             break;
     }
-
-    // Debug statement for child count
-    printf("Debug: Node at depth %d has %d children\n", depth, node->childrenCount);
 
     // Recursively print child nodes
     for (int i = 0; i < node->childrenCount; i++) {
         printAST(node->children[i], depth + 1);
     }
 }
-
-
 
 int main() {
     // Test cases
@@ -624,7 +644,7 @@ int main() {
     } else {
         printAST(ast1, 0);
     }
-    freeAST(ast1);
+    
 
     return EXIT_SUCCESS;
 }
