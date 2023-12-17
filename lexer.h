@@ -37,4 +37,6 @@ typedef struct {
     char* value;     
 } Token;
 
+Token** lexer(const char* input);
+
 #endif
