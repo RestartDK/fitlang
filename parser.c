@@ -416,14 +416,9 @@ ASTNode* parseAssignment(Token** tokens) {
     return assignmentNode;
 }
 
-
-
-
-// Parse a plan
-ASTNode* parsePlan(Token** tokens) {
-    // Expecting a TOKEN_IDENTIFIER token (the plan name)
-    if (tokens[0]->type != TOKEN_IDENTIFIER) {
-        fprintf(stderr, "Expected an identifier for plan name, got %s\n", tokens[0]->value);
+ASTNode* parseShowPlans(Token** tokens, int* position) {
+    if (tokens[*position]->type != TOKEN_SHOW_PLANS) {
+        // Error handling: Expected 'showPlans' token
         return NULL;
     }
 
@@ -564,10 +559,10 @@ void printAST(ASTNode *node, int depth) {
             printf("ShowPlans for: %s\n", node->data.clientProfile.name);
             break;
         case NODE_ASSIGNMENT:
-            printf("Assignment: Client - %s\n", node->data.plan.name);
+            printf("Assignment: Client - %s, Plan - %s\n", 
+                node->data.assignment.client->name, 
+                node->data.assignment.plan->data.plan.name); // Adjusted for the new structure
             break;
-        // Add more cases for other node types
-        // For example:
         case NODE_SETS:
             printf("Sets: %d\n", node->data.exercise.sets);
             break;
