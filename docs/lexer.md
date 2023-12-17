@@ -85,27 +85,6 @@ For example, the regular expression for identifying keywords like "assign" or "M
 
 
 
-### Sample Code Snippet
-
-```
-ClientProfile Daniel;
-
-assign muscleBuildingPlan Daniel {
-    Monday {
-        exercise: "squats" | sets: 3 | rest: 1
-        exercise: "leg press" | sets: 3 | rest: 1
-    }
-    Tuesday {
-        exercise: "bench press" | sets: 3 | rest: 1
-    }
-};
-
-showPlans(Daniel);
-```
-
-\
-
-
 ### Tokenization Output
 
 ```bash

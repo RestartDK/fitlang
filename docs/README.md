@@ -8,6 +8,11 @@ FitLang addresses this challenge by providing a user-friendly and domain-specifi
 
 
 
+### Additional Links
+
+To see our full documentation, click on this link:\
+[https://fitlang.gitbook.io/fitlang/](https://fitlang.gitbook.io/fitlang/)
+
 ### Structure
 
 [lexer.md](lexer.md "mention")
