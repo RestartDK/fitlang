@@ -23,7 +23,3 @@ FitLang addresses this challenge by providing a user-friendly and domain-specifi
 [language-design.md](language-design.md "mention")
 
 [sample-program.md](sample-program.md "mention")
-
-
-
-\
