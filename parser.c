@@ -139,58 +139,59 @@ void freeAST(ASTNode* root) {
  * All parsing functions for each node type
 */
 
-ASTNode* parseClientProfile(Token** tokens) {
-    if (tokens[0]->type != TOKEN_CLIENT_PROFILE) {
-        fprintf(stderr, "Expected client profile declaration, got %s\n", tokens[0]->value);
+// Parse a client profile
+ASTNode* parseClientProfile(Token*** tokens) {
+    printf("Debug: parseClientProfile - Starting\n");
+    
+    if ((**tokens)->type != TOKEN_CLIENT_PROFILE) {
+        fprintf(stderr, "Debug: parseClientProfile - Expected client profile declaration, got %s\n", (**tokens)->value);
         return NULL;
     }
-    tokens++;  // Consume TOKEN_CLIENT_PROFILE
+    printf("Debug: parseClientProfile - Consumed TOKEN_CLIENT_PROFILE\n");
+    (*tokens)++;
 
-    if (tokens[0]->type != TOKEN_IDENTIFIER) {
-        fprintf(stderr, "Expected identifier for client profile, got %s\n", tokens[0]->value);
+    if ((**tokens)->type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Debug: parseClientProfile - Expected identifier for client profile, got %s\n", (**tokens)->value);
         return NULL;
     }
+    printf("Debug: parseClientProfile - Consumed TOKEN_IDENTIFIER: %s\n", (**tokens)->value);
+    ASTNode* node = createASTNode(NODE_CLIENT_PROFILE, (**tokens)->value, 0);
+    (*tokens)++;
 
-    ASTNode* node = createASTNode(NODE_CLIENT_PROFILE, tokens[0]->value, 0);
-    tokens++;  // Consume TOKEN_IDENTIFIER
-
-    if (tokens[0]->type != TOKEN_SEMICOLON) {
-        fprintf(stderr, "Expected semicolon, got %s\n", tokens[0]->value);
+    if ((**tokens)->type != TOKEN_SEMICOLON) {
+        fprintf(stderr, "Debug: parseClientProfile - Expected semicolon, got %s\n", (**tokens)->value);
         freeAST(node);
         return NULL;
     }
-    tokens++;  // Consume TOKEN_SEMICOLON
+    printf("Debug: parseClientProfile - Consumed TOKEN_SEMICOLON\n");
+    (*tokens)++;
 
+    printf("Debug: parseClientProfile - Finished\n");
     return node;
 }
 
-
 // Parse a showPlans statement
-ASTNode* parseShowPlans(Token** tokens) {
-    // Expecting a TOKEN_IDENTIFIER token (the client name)
-    if (tokens[0]->type != TOKEN_IDENTIFIER) {
-        fprintf(stderr, "Expected an identifier for client name in showPlans, got %s\n", tokens[0]->value);
+ASTNode* parseShowPlans(Token*** tokens) {
+    if ((**tokens)->type != TOKEN_SHOW_PLANS) {
+        fprintf(stderr, "Expected 'showPlans', got %s\n", (**tokens)->value);
+        return NULL;
+    }
+    (*tokens)++;  // Consume TOKEN_SHOW_PLANS
+
+    if ((**tokens)->type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Expected an identifier for client name, got %s\n", (**tokens)->value);
         return NULL;
     }
 
-    // Create a new node for showPlans
-    ASTNode* node = createASTNode(NODE_SHOW_PLANS, tokens[0]->value, 0);
-    if (!node) return NULL;
+    ASTNode* node = createASTNode(NODE_SHOW_PLANS, (**tokens)->value, 0);
+    (*tokens)++;  // Consume TOKEN_IDENTIFIER
 
-    // Consume the client name token
-    free(tokens[0]);
-    tokens++;
-
-    // Expecting a semicolon
-    if (tokens[0]->type != TOKEN_SEMICOLON) {
-        fprintf(stderr, "Expected a semicolon after showPlans, got %s\n", tokens[0]->value);
+    if ((**tokens)->type != TOKEN_SEMICOLON) {
+        fprintf(stderr, "Expected semicolon, got %s\n", (**tokens)->value);
         freeAST(node);
         return NULL;
     }
-
-    // Consume the semicolon
-    free(tokens[0]);
-    tokens++;
+    (*tokens)++;  // Consume TOKEN_SEMICOLON
 
     return node;
 }
@@ -299,104 +300,99 @@ ASTNode* parseExercise(Token** tokens) {
 }
 
 // Parse a day
-ASTNode* parseDay(Token** tokens) {
-    // Expecting a TOKEN_IDENTIFIER token (the day name)
-    if (tokens[0]->type != TOKEN_IDENTIFIER) {
-        fprintf(stderr, "Expected an identifier for day name, got %s\n", tokens[0]->value);
+ASTNode* parseDay(Token*** tokens) {
+    printf("Debug: parseDay - Starting\n");
+
+    // Expecting a day identifier token
+    if ((**tokens)->type != TOKEN_IDENTIFIER || !isDayToken((**tokens)->type)) {
+        fprintf(stderr, "Debug: parseDay - Expected day identifier, got %s\n", (**tokens)->value);
         return NULL;
     }
-
-    // Create a new node for day
-    ASTNode* node = createASTNode(NODE_DAY, tokens[0]->value, 0);
-    if (!node) return NULL;
-
-    // Consume the day name token
-    free(tokens[0]);
-    tokens++;
+    printf("Debug: parseDay - Consumed day identifier: %s\n", (**tokens)->value);
+    ASTNode* node = createASTNode(NODE_DAY, (**tokens)->value, 0);
+    (*tokens)++; // Consume day identifier
 
     // Expecting a left brace
-    if (tokens[0]->type != TOKEN_LEFT_BRACE) {
-        fprintf(stderr, "Expected a left brace after day name, got %s\n", tokens[0]->value);
+    if ((**tokens)->type != TOKEN_LEFT_BRACE) {
+        fprintf(stderr, "Debug: parseDay - Expected left brace, got %s\n", (**tokens)->value);
         freeAST(node);
         return NULL;
     }
-
-    // Consume the left brace
-    free(tokens[0]);
-    tokens++;
+    printf("Debug: parseDay - Consumed left brace\n");
+    (*tokens)++; // Consume left brace
 
     // Parse exercises for the day
-    while (tokens[0]->type != TOKEN_RIGHT_BRACE) {
-        if (tokens[0]->type == TOKEN_IDENTIFIER) {
-            // Parse an exercise
-            ASTNode* exerciseNode = parseExercise(tokens);
+    while ((**tokens)->type != TOKEN_RIGHT_BRACE) {
+        if ((**tokens)->type == TOKEN_IDENTIFIER) {
+            printf("Debug: parseDay - Parsing exercise: %s\n", (**tokens)->value);
+            ASTNode* exerciseNode = parseExercise(*tokens);
             if (exerciseNode) {
-                // Add the exercise node as a child
                 addASTChildNode(node, exerciseNode);
+                printf("Debug: parseDay - Added exercise node\n");
             } else {
-                // Error parsing exercise, cleanup and return NULL
+                fprintf(stderr, "Debug: parseDay - Error parsing exercise\n");
                 freeAST(node);
                 return NULL;
             }
         } else {
-            fprintf(stderr, "Expected an identifier (exercise name) in day, got %s\n", tokens[0]->value);
+            fprintf(stderr, "Debug: parseDay - Expected exercise identifier, got %s\n", (**tokens)->value);
             freeAST(node);
             return NULL;
         }
     }
 
     // Expecting a right brace
-    if (tokens[0]->type != TOKEN_RIGHT_BRACE) {
-        fprintf(stderr, "Expected a right brace at the end of day, got %s\n", tokens[0]->value);
+    if ((**tokens)->type != TOKEN_RIGHT_BRACE) {
+        fprintf(stderr, "Debug: parseDay - Expected right brace, got %s\n", (**tokens)->value);
         freeAST(node);
         return NULL;
     }
+    printf("Debug: parseDay - Consumed right brace\n");
+    (*tokens)++; // Consume right brace
 
-    // Consume the right brace
-    free(tokens[0]);
-    tokens++;
-
+    printf("Debug: parseDay - Finished\n");
     return node;
 }
 
-ASTNode* parseAssignment(Token** tokens) {
+
+ASTNode* parseAssignment(Token*** tokens) {
     printf("Debug: Entering parseAssignment\n"); // Debug start of function
 
     // Check for 'assign' token
-    if ((*tokens)->type != TOKEN_ASSIGN) {
-        fprintf(stderr, "Debug: Error - Expected 'assign', got %s\n", (*tokens)->value); // Debug error
+    if ((**tokens)->type != TOKEN_ASSIGN) {
+        fprintf(stderr, "Debug: Error - Expected 'assign', got %s\n", (**tokens)->value); // Debug error
         return NULL;
     }
-    printf("Debug: Consumed 'assign' token. Current token: %s\n", (*tokens)->value); // Debug token consumption
-    tokens++;  // Move to the next token
+    printf("Debug: Consumed 'assign' token. Current token: %s\n", (**tokens)->value); // Debug token consumption
+    (*tokens)++;  // Move to the next token
 
     // Check for plan identifier
-    if ((*tokens)->type != TOKEN_IDENTIFIER) {
-        fprintf(stderr, "Debug: Error - Expected plan identifier, got %s\n", (*tokens)->value); // Debug error
+    if ((**tokens)->type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Debug: Error - Expected plan identifier, got %s\n", (**tokens)->value); // Debug error
         return NULL;
     }
-    char* planName = strdup((*tokens)->value);
+    char* planName = strdup((**tokens)->value);
     printf("Debug: Consumed plan identifier. Plan Name: %s\n", planName); // Debug token consumption
-    tokens++;  // Move to the next token
+    (*tokens)++;  // Move to the next token
 
     // Check for 'to' keyword
-    if ((*tokens)->type != TOKEN_TO) {
+    if ((**tokens)->type != TOKEN_TO) {
         free(planName);
-        fprintf(stderr, "Debug: Error - Expected 'to', got %s\n", (*tokens)->value); // Debug error
+        fprintf(stderr, "Debug: Error - Expected 'to', got %s\n", (**tokens)->value); // Debug error
         return NULL;
     }
     printf("Debug: Consumed 'to' token.\n"); // Debug token consumption
-    tokens++;  // Move to the next token
+    (*tokens)++;  // Move to the next token
 
     // Check for client identifier
-    if ((*tokens)->type != TOKEN_IDENTIFIER) {
+    if ((**tokens)->type != TOKEN_IDENTIFIER) {
         free(planName);
-        fprintf(stderr, "Debug: Error - Expected client identifier, got %s\n", (*tokens)->value); // Debug error
+        fprintf(stderr, "Debug: Error - Expected client identifier, got %s\n", (**tokens)->value); // Debug error
         return NULL;
     }
-    char* clientName = strdup((*tokens)->value);
+    char* clientName = strdup((**tokens)->value);
     printf("Debug: Consumed client identifier. Client Name: %s\n", clientName); // Debug token consumption
-    tokens++;  // Move to the next token
+    (*tokens)++;  // Move to the next token
 
     // Create nodes for client and plan
     ASTNode* planNode = createASTNode(NODE_PLAN, planName, 0);
@@ -416,92 +412,34 @@ ASTNode* parseAssignment(Token** tokens) {
     return assignmentNode;
 }
 
-ASTNode* parseShowPlans(Token** tokens, int* position) {
-    if (tokens[*position]->type != TOKEN_SHOW_PLANS) {
-        // Error handling: Expected 'showPlans' token
-        return NULL;
-    }
 
-    // Create a new node for plan
-    ASTNode* node = createASTNode(NODE_PLAN, tokens[0]->value, 0);
-    if (!node) return NULL;
-
-    // Consume the plan name token
-    free(tokens[0]);
-    tokens++;
-
-    // Expecting a left brace
-    if (tokens[0]->type != TOKEN_LEFT_BRACE) {
-        fprintf(stderr, "Expected a left brace after plan name, got %s\n", tokens[0]->value);
-        freeAST(node);
-        return NULL;
-    }
-
-    // Consume the left brace
-    free(tokens[0]);
-    tokens++;
-
-    // Parse assignments for the plan
-    while (tokens[0]->type != TOKEN_RIGHT_BRACE) {
-        if (tokens[0]->type == TOKEN_IDENTIFIER) {
-            // Parse an assignment
-            ASTNode* assignmentNode = parseAssignment(tokens);
-            if (assignmentNode) {
-                // Add the assignment node as a child
-                addASTChildNode(node, assignmentNode);
-            } else {
-                // Error parsing assignment, cleanup and return NULL
-                freeAST(node);
-                return NULL;
-            }
-        } else {
-            fprintf(stderr, "Expected an identifier (day name) in plan, got %s\n", tokens[0]->value);
-            freeAST(node);
-            return NULL;
-        }
-    }
-
-    // Expecting a right brace
-    if (tokens[0]->type != TOKEN_RIGHT_BRACE) {
-        fprintf(stderr, "Expected a right brace at the end of plan, got %s\n", tokens[0]->value);
-        freeAST(node);
-        return NULL;
-    }
-
-    // Consume the right brace
-    free(tokens[0]);
-    tokens++;
-
-    // Expecting a semicolon
-    if (tokens[0]->type != TOKEN_SEMICOLON) {
-        fprintf(stderr, "Expected a semicolon after plan, got %s\n", tokens[0]->value);
-        freeAST(node);
-        return NULL;
-    }
-
-    // Consume the semicolon
-    free(tokens[0]);
-    tokens++;
-
-    return node;
-}
-
-
+// Parse the entire program
 ASTNode* parseProgram(Token** tokens) {
+    printf("Debug: parseProgram - Starting\n");
     ASTNode* root = createASTNode(NODE_MAIN, NULL, 0);
-    if (!root) return NULL;
+    if (!root) {
+        fprintf(stderr, "Debug: Error - Failed to create root node\n");
+        return NULL;
+    }
 
-    while (*tokens) {
+    Token** currentToken = tokens;  // Use a separate pointer to advance through tokens
+
+    while (*currentToken) {
+        printf("Debug: Current token type: %d, value: %s\n", (*currentToken)->type, (*currentToken)->value);
         ASTNode* child = NULL;
-        switch ((*tokens)->type) {
+
+        switch ((*currentToken)->type) {
             case TOKEN_CLIENT_PROFILE:
-                child = parseClientProfile(tokens);
+                printf("Debug: Found TOKEN_CLIENT_PROFILE\n");
+                child = parseClientProfile(&currentToken);
                 break;
             case TOKEN_ASSIGN:
-                child = parseAssignment(tokens);
+                printf("Debug: Found TOKEN_ASSIGN\n");
+                child = parseAssignment(&currentToken);
                 break;
             case TOKEN_SHOW_PLANS:
-                child = parseShowPlans(tokens);
+                printf("Debug: Found TOKEN_SHOW_PLANS\n");
+                child = parseShowPlans(&currentToken);
                 break;
             case TOKEN_MONDAY:
             case TOKEN_TUESDAY:
@@ -510,25 +448,32 @@ ASTNode* parseProgram(Token** tokens) {
             case TOKEN_FRIDAY:
             case TOKEN_SATURDAY:
             case TOKEN_SUNDAY:
-                child = parseDay(tokens);
+                printf("Debug: Found a day token\n");
+                child = parseDay(&currentToken);
                 break;
+            // Add other cases as needed
             default:
-                fprintf(stderr, "Unexpected token: %s\n", (*tokens)->value);
+                fprintf(stderr, "Debug: Unexpected token: %s\n", (*currentToken)->value);
                 freeAST(root);
                 return NULL;
         }
 
         if (child) {
+            printf("Debug: Adding child node to root\n");
             addASTChildNode(root, child);
         } else {
+            fprintf(stderr, "Debug: Error occurred during parsing, no child node created\n");
             // Error occurred during parsing, cleanup and return NULL
             freeAST(root);
             return NULL;
         }
     }
 
+    printf("Debug: Exiting parseProgram\n");
     return root;
 }
+
+
 
 void printAST(ASTNode *node, int depth) {
     if (!node) return;
@@ -560,9 +505,10 @@ void printAST(ASTNode *node, int depth) {
             break;
         case NODE_ASSIGNMENT:
             printf("Assignment: Client - %s, Plan - %s\n", 
-                node->data.assignment.client->name, 
-                node->data.assignment.plan->data.plan.name); // Adjusted for the new structure
+                node->data.assignment.client->data.clientProfile.name, 
+                node->data.assignment.plan->data.plan.name);
             break;
+
         case NODE_SETS:
             printf("Sets: %d\n", node->data.exercise.sets);
             break;
@@ -582,34 +528,24 @@ void printAST(ASTNode *node, int depth) {
 
 int main() {
     // Test cases
-    char* sourceCode1 = "ClientProfile Daniel;";
-    char* sourceCode2 = "assign muscleBuildingPlan Daniel {\n"
-                        "    Monday {\n"
-                        "        exercise: \"squats\" | sets: 3 | rest: 1;\n"
-                        "        exercise: \"leg press\" | sets: 3 | rest: 1;\n"
-                        "    }\n"
-                        "    Tuesday {\n"
-                        "        exercise: \"bench press\" | sets: 3 | rest: 1;\n"
-                        "    }\n"
-                        "};";
-    char* sourceCode3 = "showPlans(Daniel);";
-    char* sourceCode4 = "ClientProfile Daniel;\n"
-                        "assign muscleBuildingPlan Daniel {\n"
-                        "    Monday {\n"
-                        "        exercise: \"squats\" | sets: 3 | rest: 1;\n"
-                        "        exercise: \"leg press\" | sets: 3 | rest: 1;\n"
-                        "    }\n"
-                        "    Tuesday {\n"
-                        "        exercise: \"bench press\" | sets: 3 | rest: 1;\n"
-                        "    }\n"
-                        "};\n"
-                        "showPlans(Daniel);";
+    char* sourceCode = 
+    "ClientProfile Daniel;\n"
+    "assign muscleBuildingPlan to Daniel {\n"
+    "    Monday {\n"
+    "        exercise: \"squats\" | sets: 3 | rest: 1;\n"
+    "        exercise: \"leg press\" | sets: 3 | rest: 1;\n"
+    "    }\n"
+    "    Tuesday {\n"
+    "        exercise: \"bench press\" | sets: 3 | rest: 1;\n"
+    "    }\n"
+    "};";
+
 
     // Assuming readSourceCode and lexer are defined and implemented
     Token** tokens;
 
     // Test case 1
-    tokens = lexer(sourceCode1);
+    tokens = lexer(sourceCode);
     printf("Tokens generated by lexer for Test Case 1:\n");
     for (int i = 0; tokens[i] != NULL; i++) {
         printf("Token %d: type = %d, value = %s\n", i, tokens[i]->type, tokens[i]->value);
@@ -622,51 +558,6 @@ int main() {
         printAST(ast1, 0);
     }
     freeAST(ast1);
-
-    // Test case 2
-    tokens = lexer(sourceCode2);
-    printf("Tokens generated by lexer for Test Case 2:\n");
-    for (int i = 0; tokens[i] != NULL; i++) {
-        printf("Token %d: type = %d, value = %s\n", i, tokens[i]->type, tokens[i]->value);
-    }
-    ASTNode* ast2 = parseProgram(tokens);
-    printf("AST generated by parser for Test Case 2:\n");
-    if (ast2 == NULL) {
-        fprintf(stderr, "Error in parsing Test Case 2.\n");
-    } else {
-        printAST(ast2, 0);
-    }
-    freeAST(ast2);
-
-    // Test case 3
-    tokens = lexer(sourceCode3);
-    printf("Tokens generated by lexer for Test Case 3:\n");
-    for (int i = 0; tokens[i] != NULL; i++) {
-        printf("Token %d: type = %d, value = %s\n", i, tokens[i]->type, tokens[i]->value);
-    }
-    ASTNode* ast3 = parseProgram(tokens);
-    printf("AST generated by parser for Test Case 3:\n");
-    if (ast3 == NULL) {
-        fprintf(stderr, "Error in parsing Test Case 3.\n");
-    } else {
-        printAST(ast3, 0);
-    }
-    freeAST(ast3);
-
-    // Test case 4
-    tokens = lexer(sourceCode4);
-    printf("Tokens generated by lexer for Test Case 4:\n");
-    for (int i = 0; tokens[i] != NULL; i++) {
-        printf("Token %d: type = %d, value = %s\n", i, tokens[i]->type, tokens[i]->value);
-    }
-    ASTNode* ast4 = parseProgram(tokens);
-    printf("AST generated by parser for Test Case 4:\n");
-    if (ast4 == NULL) {
-        fprintf(stderr, "Error in parsing Test Case 4.\n");
-    } else {
-        printAST(ast4, 0);
-    }
-    freeAST(ast4);
 
     return EXIT_SUCCESS;
 }
