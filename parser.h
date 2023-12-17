@@ -15,6 +15,7 @@ typedef enum {
     NODE_REST,           // Represents the rest time in an exercise
     NODE_LITERAL,        // Represents a literal value (e.g., "squats", number of sets)
     NODE_ASSIGNMENT,     // Represents an assignment of a plan to a client
+    NODE_IDENTIFIER,     // Represents an identifier (e.g., "John")
 } NodeType;
 
 // Define the structure of an AST node
@@ -24,18 +25,23 @@ typedef struct {
     ASTNode* program;
 } ASTProgram;
 
+// Define identifier node
+typedef struct {
+    char* name; // Name of the identifier
+} ASTIdentifier;
+
 // Structures for different node types
 typedef struct {
     char* name; // Name of the client
 } ASTClientProfile;
 
 typedef struct {
-    ASTClientProfile* client;
+    ASTNode* client;
 } ASTShowPlans;
 
 typedef struct {
-    ASTClientProfile* client;
-    ASTShowPlans* plan;
+    ASTNode* client;
+    ASTNode* plan;
 } ASTAssignment;
 
 typedef struct {
@@ -57,7 +63,8 @@ typedef struct {
 
 typedef struct {
     char* name; // Name of the plan
-    ASTNode* days;
+    ASTNode* client; // Pointer to the corresponding client node
+    ASTNode* days; // Points to the days within the plan
 } ASTPlan;
 
 typedef struct {
@@ -67,6 +74,7 @@ typedef struct {
 // Tagged union to represent node data
 typedef union {
     ASTProgram program;
+    ASTIdentifier identifier;
     ASTClientProfile clientProfile;
     ASTAssignment assignment;
     ASTDay day;

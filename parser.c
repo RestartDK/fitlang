@@ -39,6 +39,9 @@ void freeAST(ASTNode* root) {
         case NODE_LITERAL:
             free(root->data.literal.value);
             break;
+        case NODE_IDENTIFIER:
+            free(root->data.identifier.name);
+            break;
         case NODE_ASSIGNMENT:
             free(root->data.assignment.client);
             break;
@@ -59,8 +62,13 @@ void addASTChildNode(ASTNode* parent, ASTNode* child) {
 }
 
 ASTNode* createASTNode(NodeType type, const char* value) {
+    printf("Creating node with type: %d, value: %s\n", type, value);
+
     ASTNode* node = malloc(sizeof(ASTNode));
-    if (!node) return NULL;
+    if (!node) {
+        printf("Failed to allocate memory for node\n");
+        return NULL;
+    }
 
     node->type = type;
     node->children = NULL;
@@ -69,35 +77,58 @@ ASTNode* createASTNode(NodeType type, const char* value) {
     // Initialize node-specific data
     switch (type) {
         case NODE_PROGRAM:
+            printf("Creating NODE_PROGRAM\n");
             break;
         case NODE_CLIENT_PROFILE:
             node->data.clientProfile.name = strdup(value);
+            printf("Creating NODE_CLIENT_PROFILE with name: %s\n", node->data.clientProfile.name);
+            break;
+        case NODE_IDENTIFIER:
+            node->data.identifier.name = strdup(value);
+            printf("Creating NODE_IDENTIFIER with name: %s\n", node->data.identifier.name);
             break;
         case NODE_PLAN:
             node->data.plan.name = strdup(value);
+            printf("Creating NODE_PLAN with name: %s  For client: %s\n", node->data.plan.name, node->data.clientProfile.name);
             break;
         case NODE_DAY:
             node->data.day.name = strdup(value);
+            printf("Creating NODE_DAY with name: %s\n", node->data.day.name);
             break;
         case NODE_EXERCISE:
             node->data.exercise.name = strdup(value);
+            printf("Creating NODE_EXERCISE with name: %s\n", node->data.exercise.name);
             break;
         case NODE_SHOW_PLANS:
-            node->data.showPlans.client->name = strdup(value);
+            // Allocate memory for the client node within showPlans
+            node->data.showPlans.client = malloc(sizeof(ASTClientProfile));
+            if (node->data.showPlans.client == NULL) {
+                printf("Failed to allocate memory for showPlans client\n");
+                free(node); // Don't forget to free the allocated node
+                return NULL;
+            }
+            // Now it's safe to duplicate the value
+            node->data.showPlans.client = strdup(value);
+            printf("Creating NODE_SHOW_PLANS with client name: %s\n", node->data.showPlans.client);
             break;
         case NODE_SETS:
             node->data.exercise.sets = atoi(value);
+            printf("Creating NODE_SETS with sets: %d\n", node->data.exercise.sets);
             break;
         case NODE_REST:
             node->data.exercise.rest = atoi(value);
+            printf("Creating NODE_REST with rest: %d\n", node->data.exercise.rest);
             break;
         case NODE_LITERAL:
             node->data.literal.value = strdup(value);
+            printf("Creating NODE_LITERAL with value: %s\n", node->data.literal.value);
             break;
         case NODE_ASSIGNMENT:
-            node->data.assignment.client->name = strdup(value);
+            node->data.assignment.client = strdup(value);
+            node->data.assignment.plan = strdup(value);
+            printf("Creating NODE_ASSIGNMENT with client name: %s\n", node->data.assignment.client);
             break;
-        // Add cases for other types as needed
+        // Add similar print statements for other cases
     }
 
     return node;
@@ -218,14 +249,14 @@ ASTNode* parseDay(Token** tokens, int* position) {
     return dayNode;
 }
 
-ASTNode* parsePlan(Token** tokens, int* position) {
+ASTNode* parsePlan(Token** tokens, int* position, ASTNode* clientsList) {
     if (tokens[*position]->type != TOKEN_ASSIGN) {
         // Error handling: Expected 'assign' token
         return NULL;
     }
     (*position)++;
 
-    // Assuming the next token is the plan name
+    // Parsing plan name
     if (tokens[*position]->type != TOKEN_IDENTIFIER) {
         // Error handling: Expected plan name as identifier
         return NULL;
@@ -233,7 +264,7 @@ ASTNode* parsePlan(Token** tokens, int* position) {
     char* planName = strdup(tokens[*position]->value);
     (*position)++;
 
-    // Next token should be the client identifier
+    // Parse the client identifier
     if (tokens[*position]->type != TOKEN_IDENTIFIER) {
         // Error handling: Expected client identifier
         free(planName);
@@ -242,31 +273,34 @@ ASTNode* parsePlan(Token** tokens, int* position) {
     char* clientName = strdup(tokens[*position]->value);
     (*position)++;
 
-    // Create plan node
+    // Find the client node
+    ASTNode* clientNode = findClientNode(clientsList, clientName);
+    free(clientName);
+    if (!clientNode) {
+        // Error handling: Client not found
+        free(planName);
+        return NULL;
+    }
+
+    // Create plan node and link it to the client node
     ASTNode* planNode = createASTNode(NODE_PLAN, planName);
+    planNode->data.plan.client = clientNode;
     free(planName);
 
-    // Optionally, you could link the plan to a client node here
-
     // Parse each day within the plan
-    while (tokens[*position]->type == TOKEN_MONDAY || tokens[*position]->type == TOKEN_TUESDAY ||
-        tokens[*position]->type == TOKEN_WEDNESDAY || tokens[*position]->type == TOKEN_THURSDAY ||
-        tokens[*position]->type == TOKEN_FRIDAY || tokens[*position]->type == TOKEN_SATURDAY ||
-        tokens[*position]->type == TOKEN_SUNDAY) {
+    while (isDayToken(tokens[*position])) {
         ASTNode* dayNode = parseDay(tokens, position);
         if (dayNode == NULL) {
             // Error handling
-            free(clientName);
             freeAST(planNode);
             return NULL;
         }
         addASTChildNode(planNode, dayNode);
     }
 
-    // Optionally, handle linking the plan to other parts of the AST
-
     return planNode;
 }
+
 
 ASTNode* parseShowPlans(Token** tokens, int* position) {
     if (tokens[*position]->type != TOKEN_SHOW_PLANS) {
@@ -287,35 +321,36 @@ ASTNode* parseShowPlans(Token** tokens, int* position) {
     return showPlansNode;
 }
 
-ASTNode* parseAssignment(Token** tokens, int* position) {
-    if (tokens[*position]->type != TOKEN_ASSIGN) {
-        // Error handling: Expected 'assign' token
+ASTNode* parseIdentifier(Token** tokens, int* position) {
+    if (tokens[*position]->type != TOKEN_IDENTIFIER) {
+        // Error handling: Expected identifier
         return NULL;
     }
+    ASTNode* identifierNode = createASTNode(NODE_IDENTIFIER, tokens[*position]->value);
     (*position)++;
+    return identifierNode;
+}
 
+ASTNode* parseAssignment(Token** tokens, int* position) {
     // Parse client identifier
-    if (tokens[*position]->type != TOKEN_IDENTIFIER) {
+    ASTNode* clientNode = parseIdentifier(tokens, position);
+    if (!clientNode) {
         // Error handling: Expected identifier after 'assign'
         return NULL;
     }
-    char* clientName = strdup(tokens[*position]->value);
-    (*position)++;
 
     // Parse plan identifier
-    if (tokens[*position]->type != TOKEN_IDENTIFIER) {
+    ASTNode* planNode = parseIdentifier(tokens, position);
+    if (!planNode) {
         // Error handling: Expected identifier after client identifier
-        free(clientName);
+        freeAST(clientNode);
         return NULL;
     }
-    char* planName = strdup(tokens[*position]->value);
-    (*position)++;
 
     // Create assignment node
-    ASTNode* assignmentNode = createASTNode(NODE_ASSIGNMENT, clientName);
-    free(clientName);
-
-    // Optionally, link the assignment to a plan node here
+    ASTNode* assignmentNode = createASTNode(NODE_ASSIGNMENT, NULL);
+    assignmentNode->data.assignment.client = clientNode;
+    assignmentNode->data.assignment.plan = planNode;
 
     return assignmentNode;
 }
@@ -366,13 +401,19 @@ ASTNode* parseProgram(Token** tokens) {
     return root;
 }
 
-void ast_print(ASTNode *node, int depth) {
+void printAST(ASTNode *node, int depth) {
     if (!node) return;
 
     // Indentation for better readability
     for (int i = 0; i < depth; i++) printf("  ");
 
     switch (node->type) {
+        case NODE_PROGRAM:
+            printf("Program\n");
+            break;
+        case NODE_IDENTIFIER:
+            printf("Identifier: %s\n", node->data.identifier.name);
+            break;
         case NODE_CLIENT_PROFILE:
             printf("ClientProfile: %s\n", node->data.clientProfile.name);
             break;
@@ -406,14 +447,23 @@ void ast_print(ASTNode *node, int depth) {
 
     // Recursively print child nodes
     for (int i = 0; i < node->childrenCount; i++) {
-        ast_print(node->children[i], depth + 1);
+        printAST(node->children[i], depth + 1);
     }
 }
 
 int main() {
     // Assuming readSourceCode and lexer are defined and implemented
-    char* sourceCode = "assign muscleBuildingPlan Daniel { Monday { exercise: \"squats\" | sets: 3 | rest: 1 } }";
-    printf("Source code: %s\n", sourceCode); // Debug print
+    char* sourceCode = "ClientProfile Daniel;\n"
+                       "assign muscleBuildingPlan Daniel {\n"
+                       "    Monday {\n"
+                       "        exercise: \"squats\" | sets: 3 | rest: 1\n"
+                       "        exercise: \"leg press\" | sets: 3 | rest: 1\n"
+                       "    }\n"
+                       "    Tuesday {\n"
+                       "        exercise: \"bench press\" | sets: 3 | rest: 1\n"
+                       "    }\n"
+                       "};\n"
+                       "showPlans(Daniel);";
 
     Token** tokens = lexer(sourceCode);
     printf("Tokens generated by lexer:\n"); // Debug print
@@ -429,7 +479,7 @@ int main() {
         fprintf(stderr, "Error in parsing the program.\n");
     } else {
         // Pretty print the AST for debugging
-        ast_print(ast, 0);
+        printAST(ast, 0);
     }
 
     // Cleanup
